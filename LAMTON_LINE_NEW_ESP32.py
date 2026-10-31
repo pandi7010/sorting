@@ -10939,8 +10939,8 @@ class BackgroundGraphWindow(QDialog):
         if not (link and getattr(link, 'is_open', False)):
             return
 
-        # Use recent 2 scan lines for zero-lag instantaneous response
-        recent_slice = frame[-2:] if frame.shape[0] >= 2 else frame
+        # Check EVERY scan line of the new frame (a needle in any line of the frame must open its valve)
+        recent_slice = frame
         min_line = np.min(recent_slice, axis=0)
         max_line = np.max(recent_slice, axis=0)
 
@@ -10986,6 +10986,22 @@ class BackgroundGraphWindow(QDialog):
 
         newly_on = [ch for ch in current_active if ch not in self.hw_active_channels]
         to_turn_off = [ch for ch in self.hw_active_channels if ch not in current_active]
+
+        # ESP watchdog (ESP_BYTE mode): the board closes any valve that was not re-sent ON within 250 ms,
+        # so a frozen PC / lost frames / unplugged cable can never leave a valve stuck open.
+        # 'W' arms it (repeated every 5 s in case the board rebooted); held channels are re-sent every 100 ms.
+        if getattr(link, 'mode', None) == "ESP_BYTE":
+            now_wd = time.perf_counter()
+            if now_wd - getattr(self, '_wd_armed_t', 0.0) >= 5.0:
+                link._write(b'W')
+                self._wd_armed_t = now_wd
+            if newly_on:
+                self._wd_refresh_t = now_wd
+            if self.hw_active_channels and now_wd - getattr(self, '_wd_refresh_t', 0.0) >= 0.1:
+                held = [ch for ch in self.hw_active_channels if ch not in to_turn_off and ch not in newly_on]
+                if held:
+                    link._write(bytes(held))
+                self._wd_refresh_t = now_wd
 
         if newly_on:
             for ch in newly_on:
