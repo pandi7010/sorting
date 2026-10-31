@@ -502,7 +502,7 @@ class EjectorLink:
             # An anti-flickering hold window of max(0.095, (pulse_ms + 75ms)) guarantees
             # that consecutive frames seamlessly bridge without turning OFF, eliminating
             # all LED flickering and pneumatic valve chattering!
-            eff_pulse_s = max(0.095, (float(pulse_ms) + 75.0) / 1000.0)
+            eff_pulse_s = max(0.015, float(pulse_ms) / 1000.0)
             now = time.perf_counter()
             target_expire = now + eff_pulse_s
 

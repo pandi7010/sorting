@@ -1,7 +1,7 @@
 {
     "camera_thresh": {
         "FRONT": {
-            "lower": 37,
+            "lower": 42,
             "upper": 221,
             "band_mode": false
         },
@@ -11,7 +11,7 @@
             "band_mode": false
         }
     },
-    "thresh_lower": 37,
+    "thresh_lower": 42,
     "thresh_upper": 221,
     "band_mode": false,
     "wave_mode": "BLUE"

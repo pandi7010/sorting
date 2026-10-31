@@ -10614,9 +10614,15 @@ class BackgroundGraphWindow(QDialog):
                     json.dump(data, f, indent=2)
                 if hasattr(self, 'parent_ui') and self.parent_ui:
                     mw = getattr(self.parent_ui, 'main_window', None)
-                    if mw and hasattr(mw, 'camera_configs') and self.camera_view in mw.camera_configs:
-                        mw.camera_configs[self.camera_view]['start_pixel'] = int(self.start_pixel)
-                        mw.camera_configs[self.camera_view]['end_pixel'] = int(self.end_pixel)
+                    if mw:
+                        if hasattr(mw, 'reload_camera_configs'):
+                            mw.reload_camera_configs()
+                        if hasattr(mw, 'camera_configs_data') and self.camera_view in mw.camera_configs_data:
+                            mw.camera_configs_data[self.camera_view]['start_pixel'] = int(self.start_pixel)
+                            mw.camera_configs_data[self.camera_view]['end_pixel'] = int(self.end_pixel)
+                        if hasattr(mw, 'bg_settings'):
+                            mw.bg_settings['start_pixel'] = int(self.start_pixel)
+                            mw.bg_settings['end_pixel'] = int(self.end_pixel)
             except Exception as e:
                 print('Error saving camera bounds:', e)
 
@@ -11934,7 +11940,11 @@ class MainDashboard(QMainWindow):
                 raw_def_mask = np.zeros(plane.shape, dtype=bool)
                 if sens > 0:
                     if mode == "DARK DEFECT":
-                        eff_thresh = min(250, int(6 + (sens * 2.44)))
+                        thresh_lo = 0
+                        if "camera_thresh" in self.bg_settings and source in self.bg_settings["camera_thresh"]:
+                            thresh_lo = self.bg_settings["camera_thresh"][source].get("lower", 0)
+                        
+                        eff_thresh = max(thresh_lo, min(250, int(6 + (sens * 2.44))))
                         
                         # Newton V31 Reference: Dual Condition Detection
                         # Condition 1: Absolute threshold (pixel is darker than limit)
@@ -11981,22 +11991,14 @@ class MainDashboard(QMainWindow):
                                 "channel": ch_idx + 1, "confidence": 1.0
                             })
                 else:
-                    # DARK DEFECT (unmodified - keeps wire test and fast dark defect 100% working!)
-                    # LINE SCAN: Project to 1D FIRST.
-                    # Wire = 1px wide × 512 lines tall → np.any catches it across all scan lines.
-                    # Rice = many px wide × 1-2 lines tall → np.any catches it in those 1-2 lines.
-                    # This is exactly what Newton V31 does: col_mins_full = np.min(gray_band, axis=0)
-                    algo_trigger = np.any(raw_def_mask, axis=0)  # collapse all scan lines to 1D
-                    
-                    if start_pixel > 0: algo_trigger[:start_pixel] = False
-                    if end_pixel < len(algo_trigger): algo_trigger[end_pixel:] = False
-                    
+                    # DARK DEFECT: check channel defect pixel volume (filters 1-px sensor noise, captures wire/needle & grains)
+                    min_def_px = max(2, int(scale / 3))
                     for v_idx in range(total_valves):
                         ch_idx = v_idx % num_channels
                         chute_idx = v_idx // num_channels
                         chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
                         s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                        if np.any(algo_trigger[s_idx:e_idx]):
+                        if np.sum(raw_def_mask[:, s_idx:e_idx]) >= min_def_px:
                             results_by_channel[ch_idx].append({
                                 "enabled": True, "detected": True, "algo": algo_name, "class": mode,
                                 "channel": ch_idx + 1, "confidence": 1.0
@@ -12364,10 +12366,9 @@ class MainDashboard(QMainWindow):
                     self.operating_led_bar.set_active_channels(frame_channels)
                 delay_ms, pulse_ms = self.get_ejector_config()
                 frame_ms = getattr(self, '_frame_interval_ms', {}).get(source, 40.0)
-                # Anti-flickering bridge pulse: long defects must stay energized solidly across frames
-                bridge_pulse = max(80.0, frame_ms * 2.0 + pulse_ms)
-                # First-frame pulse should also have enough hangover to reach consecutive frames
-                live_pulse = max(float(pulse_ms), 60.0)
+                # Responsive pneumatic pulses: matches valve hardware timing (~20-25ms)
+                bridge_pulse = max(25.0, float(pulse_ms) + 10.0)
+                live_pulse = max(15.0, float(pulse_ms))
 
                 normal = [ch for ch in frame_channels if ch not in long_channels]
                 if normal and hasattr(self, 'eject_scheduler') and self.eject_scheduler:
@@ -12407,6 +12408,7 @@ class MainDashboard(QMainWindow):
             self.start_sorting_sequence()
 
     def start_sorting_sequence(self):
+        self.reload_camera_configs()
         self.system_running = True
         print("[START] Sorting sequence initiated.")
         self._channel_active_frames = {"FRONT": {}, "REAR": {}}
