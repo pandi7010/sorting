@@ -30,7 +30,7 @@ DEFAULTS = {
     "channel_calibration_enabled": False,
     "boundary_margin_px": 0,
     "continuous_capture_button": False,
-    "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
+    "eject_diag_enabled": False,           # print per-channel pixel counts once per second (read-only diagnostic)    "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
 }
 
 _cache = None

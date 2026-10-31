@@ -10062,6 +10062,23 @@ class BackgroundGraphWindow(QDialog):
     def band_mode(self, value):
         self.camera_thresh[self.camera_view]["band_mode"] = value
 
+    # Timed firing, per camera view, saved with the thresholds (0 + 0 = OFF = valve follows the product)
+    @property
+    def eject_delay_ms(self):
+        return self.camera_thresh[self.camera_view].get("delay_ms", 0)
+
+    @eject_delay_ms.setter
+    def eject_delay_ms(self, value):
+        self.camera_thresh[self.camera_view]["delay_ms"] = value
+
+    @property
+    def eject_blow_ms(self):
+        return self.camera_thresh[self.camera_view].get("blow_ms", 0)
+
+    @eject_blow_ms.setter
+    def eject_blow_ms(self, value):
+        self.camera_thresh[self.camera_view]["blow_ms"] = value
+
     def __init__(self, front_worker=None, rear_worker=None, esp32_handler=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Program Params - Background Tuning (ESP32)")
@@ -10429,6 +10446,28 @@ class BackgroundGraphWindow(QDialog):
         h2.addWidget(self.btn_slider_low_val)
         lim_lay.addLayout(h2)
 
+        # Timed firing (0 + 0 = OFF): wait DELAY after the product is seen, keep the valve open at least BLOW
+        h3 = QHBoxLayout()
+        h3.addWidget(QLabel("DELAY (ms):"))
+        self.btn_delay_val = QPushButton(f"{float(self.eject_delay_ms):g}")
+        self.btn_delay_val.setFixedSize(60, 35)
+        self.btn_delay_val.setAutoDefault(False)
+        self.btn_delay_val.setStyleSheet("color: #69f0ae; border: 1px solid #69f0ae;")
+        self.btn_delay_val.clicked.connect(
+            lambda: Keypad(self.btn_delay_val.text(), self.set_delay_manual, self).exec_())
+        h3.addWidget(self.btn_delay_val)
+        h3.addSpacing(20)
+        h3.addWidget(QLabel("BLOW (ms):"))
+        self.btn_blow_val = QPushButton(f"{float(self.eject_blow_ms):g}")
+        self.btn_blow_val.setFixedSize(60, 35)
+        self.btn_blow_val.setAutoDefault(False)
+        self.btn_blow_val.setStyleSheet("color: #ffab40; border: 1px solid #ffab40;")
+        self.btn_blow_val.clicked.connect(
+            lambda: Keypad(self.btn_blow_val.text(), self.set_blow_manual, self).exec_())
+        h3.addWidget(self.btn_blow_val)
+        h3.addStretch()
+        lim_lay.addLayout(h3)
+
         bottom_split.addWidget(self.group_limits, stretch=2)
 
         # Action Buttons
@@ -10792,6 +10831,8 @@ class BackgroundGraphWindow(QDialog):
         self.btn_slider_low_val.setText(str(self.thresh_lower))
         self.slider_upper.setValue(self.thresh_upper)
         self.btn_slider_up_val.setText(str(self.thresh_upper))
+        self.btn_delay_val.setText(f"{float(self.eject_delay_ms):g}")
+        self.btn_blow_val.setText(f"{float(self.eject_blow_ms):g}")
         self.apply_band_mode_ui()
 
         self.load_camera_bounds()  # View மாறியவுடன் புதிய Pixel அளவுகளை எடுக்க
@@ -10830,6 +10871,16 @@ class BackgroundGraphWindow(QDialog):
         self.thresh_lower = int(float(val))
         self.slider_lower.setValue(self.thresh_lower)
         self.btn_slider_low_val.setText(str(self.thresh_lower))
+        self.save_settings_silent()
+
+    def set_delay_manual(self, val):
+        self.eject_delay_ms = round(max(0.0, min(1000.0, float(val))) * 2) / 2     # steps of 0.5 ms
+        self.btn_delay_val.setText(f"{self.eject_delay_ms:g}")
+        self.save_settings_silent()
+
+    def set_blow_manual(self, val):
+        self.eject_blow_ms = round(max(0.0, min(1000.0, float(val))) * 2) / 2      # steps of 0.5 ms
+        self.btn_blow_val.setText(f"{self.eject_blow_ms:g}")
         self.save_settings_silent()
 
     def _reload_ejector_pulse(self):
@@ -11001,6 +11052,19 @@ class BackgroundGraphWindow(QDialog):
                 if 0 <= ch_idx < self.num_channels and cnt >= 2:
                     current_active.add(int(ch_idx + 1))
 
+        if features.enabled("eject_diag_enabled"):
+            try:
+                self._eject_diag(min_line, max_line, breach, channels_to_check, current_active, n_lines)
+            except Exception as exc:
+                print(f"[EJECT DIAG] failed: {type(exc).__name__}: {exc}")
+
+        # Timed mode (features_config.json: eject_delay_ms / eject_blow_ms, both 0 = OFF = level-follow below):
+        # open the valve `delay` after the product was seen and keep it open at least `blow`.
+        delay_s, blow_s = self._timed_params()
+        if delay_s > 0 or blow_s > 0:
+            self._timed_register(current_active, delay_s, blow_s)
+            return
+
         newly_on = [ch for ch in current_active if ch not in self.hw_active_channels]
         to_turn_off = [ch for ch in list(self.hw_active_channels) if ch not in current_active]
 
@@ -11037,6 +11101,126 @@ class BackgroundGraphWindow(QDialog):
             else:
                 for ch in to_turn_off:
                     self.arduino.hold_ejector_off(ch)
+
+    def _timed_params(self):
+        """(delay_s, blow_s) set in the graph window for the current camera view. Both 0 = timed mode OFF."""
+        try:
+            delay_s = max(0.0, float(self.eject_delay_ms or 0)) / 1000.0
+            blow_s = max(0.0, float(self.eject_blow_ms or 0)) / 1000.0
+        except Exception:
+            return 0.0, 0.0
+        if delay_s > 0 and blow_s <= 0:
+            blow_s = 0.002                  # only a delay was set: use a 2 ms blow
+        return delay_s, blow_s
+
+    def _timed_register(self, current_active, delay_s, blow_s):
+        """Camera thread: note which channels see product now. Per channel: open at first sight + delay,
+        close at max(open + blow, last sight + delay). A product seen again while the valve is still
+        open EXTENDS the blow (no new open/close), a later one gives a separate blow."""
+        now = time.perf_counter()
+        if not hasattr(self, '_tm_lock'):
+            self._tm_lock = threading.Lock()
+            self._tm = {}
+        with self._tm_lock:
+            for ch in current_active:
+                st = self._tm.get(ch)
+                if st is None:
+                    st = self._tm[ch] = {'open_at': now + delay_s, 'open': False, 'blow': blow_s}
+                st['close_at'] = max(st['open_at'] + blow_s, now + delay_s)
+        th = getattr(self, '_tm_thread', None)
+        if th is None or not th.is_alive():
+            self._tm_thread = threading.Thread(target=self._timed_loop, daemon=True)
+            self._tm_thread.start()
+
+    def _hw_write(self, link, channels, on):
+        if getattr(link, 'mode', None) == "ESP_BYTE":
+            link._write(bytes(channels) if on else bytes([c + 100 for c in channels]))
+        else:
+            for c in channels:
+                (self.arduino.hold_ejector_on if on else self.arduino.hold_ejector_off)(c)
+
+    def _timed_loop(self):
+        """Opens / closes the valves at the scheduled times (about 1 ms resolution) and keeps the ESP
+        watchdog armed and refreshed for the valves that are open."""
+        last_w = last_refresh = last_err = 0.0
+        next_due = None
+        while True:
+            # Sleep until shortly before the next open/close, then spin (sleep(0) just yields) so a 0.5 ms
+            # step is honoured; Windows sleep alone only has about 1 ms resolution.
+            if next_due is not None and next_due - time.perf_counter() < 0.002:
+                time.sleep(0)
+            else:
+                time.sleep(0.0005 if self._tm else 0.001)
+            try:
+                now = time.perf_counter()
+                link = getattr(self.arduino, 'ejector_link', None) if self.arduino else None
+                ok = bool(link and getattr(link, 'is_open', False) and self.local_system_running)
+                to_on, to_off = [], []
+                with self._tm_lock:
+                    if not ok:
+                        self._tm.clear()
+                        next_due = None
+                    else:
+                        for ch, st in list(self._tm.items()):
+                            if not st['open'] and now >= st['open_at']:
+                                st['open'] = True
+                                st['close_at'] = max(st['close_at'], now + st['blow'])
+                                to_on.append(ch)
+                            elif st['open'] and now >= st['close_at']:
+                                to_off.append(ch)
+                                del self._tm[ch]
+                        next_due = min((st['close_at'] if st['open'] else st['open_at'])
+                                       for st in self._tm.values()) if self._tm else None
+                if not ok:
+                    continue
+                if to_on:
+                    self._hw_write(link, to_on, True)
+                    self.hw_active_channels.update(to_on)
+                if to_off:
+                    self._hw_write(link, to_off, False)
+                    self.hw_active_channels.difference_update(to_off)
+                if getattr(link, 'mode', None) == "ESP_BYTE":
+                    if now - last_w >= 5.0:
+                        link._write(b'W')
+                        last_w = now
+                    if now - last_refresh >= 0.1:
+                        held = list(self.hw_active_channels)
+                        if held:
+                            link._write(bytes(held))
+                        last_refresh = now
+            except Exception as exc:
+                if time.monotonic() - last_err >= 5.0:
+                    last_err = time.monotonic()
+                    print(f"[EJECT TIMER ERROR] {type(exc).__name__}: {exc}")
+
+    def _eject_diag(self, min_line, max_line, breach, checked, current_active, n_lines):
+        """Read-only diagnostic (features_config.json: eject_diag_enabled), prints once per second:
+        how many pixels of every channel crossed the threshold. Channels with 1 px are rejected by the
+        2-pixel filter; channels with 0 px never crossed the threshold (min/max show how far away they were)."""
+        now = time.monotonic()
+        if now - getattr(self, '_diag_t', 0.0) < 1.0:
+            return
+        self._diag_t = now
+        sp, ep, n = int(self.start_pixel), int(self.end_pixel), int(self.num_channels)
+        if n <= 0 or ep <= sp:
+            return
+        cw = (ep - sp) / float(n)
+        counts, weak = [], []
+        for k in range(n):
+            lo = sp + int(math.ceil(k * cw))
+            hi = min(ep, sp + int(math.ceil((k + 1) * cw)))
+            cnt = int(breach[lo:hi].sum())
+            counts.append(cnt)
+            if cnt < 2 and hi > lo:
+                weak.append(f"c{k + 1}:{cnt}px min={int(min_line[lo:hi, checked].min())} "
+                            f"max={int(max_line[lo:hi, checked].max())}")
+        names = "".join("BGR"[c] for c in checked)
+        print(f"[EJECT DIAG] view={getattr(self, 'camera_view', '?')} px={sp}-{ep} ch_width={cw:.1f} "
+              f"lines={n_lines} colours={names} lo={self.thresh_lower} hi={self.thresh_upper} "
+              f"band={self.band_mode} | active {len(current_active)}/{n}")
+        print("  px over threshold per channel 1..%d: %s" % (n, " ".join(str(c) for c in counts)))
+        if weak:
+            print("  not active (<2 px): " + "; ".join(weak))
 
     def update_graph(self):
         w = self.graph_frame.width()

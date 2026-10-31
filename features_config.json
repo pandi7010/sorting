@@ -4,6 +4,6 @@
     "line_sync_enabled": false,
     "channel_calibration_enabled": false,
     "boundary_margin_px": 0,
-    "continuous_capture_button": false,
+    "eject_diag_enabled": false,    "continuous_capture_button": false,
     "ejector_test_panel_button": true
 }
