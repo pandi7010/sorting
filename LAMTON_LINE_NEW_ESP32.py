@@ -12559,6 +12559,7 @@ class MainDashboard(QMainWindow):
                 except Exception:
                     pass
             self._live_hw_active.clear()
+            self._cam_active_channels = {"FRONT": set(), "REAR": set()}
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()
