@@ -456,7 +456,7 @@
           "GRAY A": {
             "channel": "BLUE",
             "mode": "DARK DEFECT",
-            "sens": "48",
+            "sens": "5",
             "scale": "10",
             "purity": "50"
           },
@@ -478,7 +478,7 @@
           "GRAY A": {
             "channel": "BLUE",
             "mode": "DARK DEFECT",
-            "sens": "48",
+            "sens": "5",
             "scale": "10",
             "purity": "50"
           },

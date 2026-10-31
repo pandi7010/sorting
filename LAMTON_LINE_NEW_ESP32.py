@@ -9291,9 +9291,9 @@ class GigECameraWorker(QThread):
 
                     # 2. உயரத்தை (Height) மையமாக வைத்து வெட்டுதல்
                     if h > safe_roi_h:
-                        start_y = (h - safe_roi_h) // 2
+                        start_y = h - safe_roi_h
                         _crop_y0 = start_y
-                        frame = frame[start_y: start_y + safe_roi_h, :, :]
+                        frame = frame[start_y: h, :, :]
 
                     # 3. அகலத்தை (Width) மையமாக வைத்து வெட்டுதல்
                     if w > safe_roi_w:
@@ -11925,7 +11925,7 @@ class MainDashboard(QMainWindow):
                         if "camera_thresh" in self.bg_settings and source in self.bg_settings["camera_thresh"]:
                             thresh_lo = self.bg_settings["camera_thresh"][source].get("lower", 0)
                         
-                        eff_thresh = max(thresh_lo, min(250, int(6 + (sens * 2.44))))
+                        eff_thresh = thresh_lo if thresh_lo > 0 else min(250, int(6 + (sens * 2.44)))
                         
                         # Calibrated Threshold Detection: matches Background Tuning yellow line exactly
                         abs_mask = (plane < eff_thresh)
@@ -11962,14 +11962,14 @@ class MainDashboard(QMainWindow):
                                 "channel": ch_idx + 1, "confidence": 1.0
                             })
                 else:
-                    # DARK DEFECT: check channel defect pixel volume (filters 1-px sensor noise, captures wire/needle & grains)
-                    min_def_px = max(4, int(scale / 2))
+                    # DARK DEFECT: evaluate real-time recent scan slice (matches Background Tuning zero-lag response)
+                    recent_mask = raw_def_mask[-6:] if raw_def_mask.shape[0] >= 6 else raw_def_mask
                     for v_idx in range(total_valves):
                         ch_idx = v_idx % num_channels
                         chute_idx = v_idx // num_channels
                         chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
                         s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                        if np.sum(raw_def_mask[:, s_idx:e_idx]) >= min_def_px:
+                        if np.sum(recent_mask[:, s_idx:e_idx]) >= 3:
                             results_by_channel[ch_idx].append({
                                 "enabled": True, "detected": True, "algo": algo_name, "class": mode,
                                 "channel": ch_idx + 1, "confidence": 1.0
