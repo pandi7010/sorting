@@ -10917,7 +10917,93 @@ class BackgroundGraphWindow(QDialog):
 
     def update_live_frame(self, frame):
         if frame is not None:
-            self.latest_frame = frame.copy()
+            self.latest_frame = frame
+            if self.local_system_running:
+                self.evaluate_ejectors_instant(frame)
+
+    def evaluate_ejectors_instant(self, frame):
+        if not self.local_system_running:
+            if hasattr(self, 'hw_active_channels') and self.hw_active_channels:
+                link = getattr(self.arduino, 'ejector_link', None) if self.arduino else None
+                if link and getattr(link, 'is_open', False):
+                    if getattr(link, 'mode', None) == "ESP_BYTE":
+                        link._write(bytes([ch + 100 for ch in self.hw_active_channels]))
+                    else:
+                        link.stop_all()
+                self.hw_active_channels.clear()
+            return
+
+        if not (self.arduino and getattr(self.arduino, 'connected', False)):
+            return
+        link = getattr(self.arduino, 'ejector_link', None)
+        if not (link and getattr(link, 'is_open', False)):
+            return
+
+        # Use recent 2 scan lines for zero-lag instantaneous response
+        recent_slice = frame[-2:] if frame.shape[0] >= 2 else frame
+        min_line = np.min(recent_slice, axis=0)
+        max_line = np.max(recent_slice, axis=0)
+
+        channels_to_check = []
+        mode = getattr(self, "wave_mode", "BLUE")
+        if "BLUE" in mode or "ALL" in mode:
+            channels_to_check.append(0)
+        if "GREEN" in mode or "ALL" in mode:
+            channels_to_check.append(1)
+        if "RED" in mode or "ALL" in mode:
+            channels_to_check.append(2)
+        if not channels_to_check:
+            channels_to_check = [0]
+
+        t_lo = self.thresh_lower
+        t_hi = self.thresh_upper
+        is_band = self.band_mode
+
+        breach = np.zeros(min_line.shape[0], dtype=bool)
+        for c in channels_to_check:
+            if is_band:
+                breach |= (min_line[:, c] > t_lo) & (max_line[:, c] < t_hi)
+            else:
+                breach |= (min_line[:, c] < t_lo) | (max_line[:, c] > t_hi)
+
+        sp = self.start_pixel
+        ep = self.end_pixel
+        breach[:sp] = False
+        breach[ep:] = False
+
+        triggered_px = np.where(breach)[0]
+        current_active = set()
+        if len(triggered_px) > 0 and self.num_channels > 0:
+            ch_width = float(ep - sp) / float(self.num_channels)
+            ch_arr = ((triggered_px - sp) / ch_width).astype(np.int32)
+            
+            # Anti-noise filter: require at least 2 pixels to trigger a channel
+            # Prevents single-pixel CMOS shot noise / channel-edge chattering
+            u_chs, counts = np.unique(ch_arr, return_counts=True)
+            for ch_idx, cnt in zip(u_chs, counts):
+                if 0 <= ch_idx < self.num_channels and cnt >= 2:
+                    current_active.add(int(ch_idx + 1))
+
+        newly_on = [ch for ch in current_active if ch not in self.hw_active_channels]
+        to_turn_off = [ch for ch in self.hw_active_channels if ch not in current_active]
+
+        if newly_on:
+            for ch in newly_on:
+                self.hw_active_channels.add(ch)
+            if getattr(link, 'mode', None) == "ESP_BYTE":
+                link._write(bytes(newly_on))
+            else:
+                for ch in newly_on:
+                    self.arduino.hold_ejector_on(ch)
+
+        if to_turn_off:
+            for ch in to_turn_off:
+                self.hw_active_channels.discard(ch)
+            if getattr(link, 'mode', None) == "ESP_BYTE":
+                link._write(bytes([ch + 100 for ch in to_turn_off]))
+            else:
+                for ch in to_turn_off:
+                    self.arduino.hold_ejector_off(ch)
 
     def update_graph(self):
         w = self.graph_frame.width()
@@ -11138,72 +11224,9 @@ class BackgroundGraphWindow(QDialog):
         self.lbl_graph.setPixmap(pix)
         self.lbl_voltage.setText(f"SIGNAL: {center_volt:.2f}V")
 
-        # =====================================================================
-        # STATEFUL EJECTOR FIRING (Anti-Flicker Continuous Hold & Solid Pulse)
-        # =====================================================================
-        now_fire_t = time.time()
-        if self.local_system_running and self.arduino and getattr(self.arduino, 'connected', False):
-            raw_active = [i + 1 for i, v in enumerate(active_valves) if v == 1]
-            if len(raw_active) < getattr(self, '_min_trigger_channels', 1):
-                current_active = set()
-            else:
-                current_active = set(raw_active)
-
-            min_pulse_sec = max(0.005, float(getattr(self, '_cached_ejector_pulse', 10.0)) / 1000.0)
-            link = getattr(self.arduino, 'ejector_link', None)
-            is_open = bool(link and getattr(link, 'is_open', False))
-
-            # 1. Newly activated channels -> Send ON byte once (Hold continuous, NO flickering timer!)
-            newly_on = [ch for ch in current_active if ch not in self.hw_active_channels]
-            if newly_on:
-                for ch in newly_on:
-                    self.hw_active_channels.add(ch)
-                    self.hw_channel_on_time[ch] = now_fire_t
-                if is_open:
-                    if getattr(link, 'mode', None) == "ESP_BYTE":
-                        link._write(bytes(newly_on))
-                    else:
-                        for ch in newly_on:
-                            self.arduino.hold_ejector_on(ch)
-
-            # 2. Channels that remain active in breach -> Stay solidly ON (NO redundant writes!)
-            for ch in current_active:
-                if ch in self.hw_active_channels:
-                    self.hw_channel_on_time.setdefault(ch, now_fire_t)
-
-            # 3. Channels no longer in breach -> Turn OFF only after min_pulse_sec has elapsed
-            to_turn_off = []
-            for ch in list(self.hw_active_channels):
-                if ch not in current_active:
-                    if (now_fire_t - self.hw_channel_on_time.get(ch, 0.0)) >= min_pulse_sec:
-                        to_turn_off.append(ch)
-
-            if to_turn_off:
-                for ch in to_turn_off:
-                    self.hw_active_channels.discard(ch)
-                    self.hw_channel_on_time.pop(ch, None)
-                if is_open:
-                    if getattr(link, 'mode', None) == "ESP_BYTE":
-                        link._write(bytes([ch + 100 for ch in to_turn_off]))
-                    else:
-                        for ch in to_turn_off:
-                            self.arduino.hold_ejector_off(ch)
-        elif self.hw_active_channels:
-            if self.arduino and getattr(self.arduino, 'ejector_link', None):
-                link = self.arduino.ejector_link
-                if getattr(link, 'is_open', False):
-                    if getattr(link, 'mode', None) == "ESP_BYTE":
-                        link._write(bytes([ch + 100 for ch in self.hw_active_channels]))
-                    else:
-                        link.stop_all()
-            self.hw_active_channels.clear()
-            self.hw_channel_on_time.clear()
-
-
-        # --- REAL-TIME 1:1 LED UPDATE (NO 350ms BUFFER HOLD) ---
-        # Directly reflect active channels in real-time so that only the channel
-        # with the object/needle is RED; when the object moves away, it turns GREEN immediately.
-        self.draw_top_led_bar(active_valves)
+        # --- REAL-TIME 1:1 LED UPDATE SYNCHRONIZED WITH HARDWARE ACTUATION ---
+        led_status = [1 if (i + 1) in self.hw_active_channels else 0 for i in range(self.num_channels)]
+        self.draw_top_led_bar(led_status)
 
     def draw_top_led_bar(self, active_valves=None):
         if not hasattr(self, 'led_frame') or not hasattr(self, 'lbl_leds'):
@@ -12189,7 +12212,7 @@ class MainDashboard(QMainWindow):
                     chute_idx = v_idx // num_channels
                     chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
                     s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                    if np.sum(algo_trigger[s_idx:e_idx]) >= 1:
+                    if np.sum(algo_trigger[s_idx:e_idx]) >= 2:
                         results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": "FALLBACK", "class": "DEFECT", "channel": ch_idx + 1})
 
 
