@@ -2975,39 +2975,20 @@ class SimulationOperatingLEDBar(QWidget):
         super().__init__(parent)
         self.num_channels = num_channels
         self.active_channels = set()
-        self.channel_expiry = {}
         self.setFixedHeight(46)
         self.setCursor(Qt.PointingHandCursor)
         self.setToolTip("63-Channel Ejector Operating LED Indicators: Live defect firing; Click any channel to test fire")
-        self.decay_timer = QTimer(self)
-        self.decay_timer.setInterval(40)
-        self.decay_timer.timeout.connect(self._check_decay)
-        self.decay_timer.start()
 
-    def _check_decay(self):
-        if not self.channel_expiry:
-            return
-        now = time.time()
-        expired = [ch for ch, exp in self.channel_expiry.items() if now >= exp]
-        if expired:
-            for ch in expired:
-                del self.channel_expiry[ch]
-                self.active_channels.discard(ch)
+    def set_active_channels(self, channels, hold_sec=0.0):
+        new_active = set(channels) if channels else set()
+        if new_active != self.active_channels:
+            self.active_channels = new_active
             self.update()
 
-    def set_active_channels(self, channels, hold_sec=0.35):
-        if not channels:
-            return
-        now = time.time()
-        for ch in channels:
-            self.active_channels.add(ch)
-            self.channel_expiry[ch] = now + hold_sec
-        self.update()
-
     def clear_leds(self):
-        self.channel_expiry.clear()
-        self.active_channels.clear()
-        self.update()
+        if self.active_channels:
+            self.active_channels.clear()
+            self.update()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -11946,19 +11927,9 @@ class MainDashboard(QMainWindow):
                         
                         eff_thresh = max(thresh_lo, min(250, int(6 + (sens * 2.44))))
                         
-                        # Newton V31 Reference: Dual Condition Detection
-                        # Condition 1: Absolute threshold (pixel is darker than limit)
+                        # Calibrated Threshold Detection: matches Background Tuning yellow line exactly
                         abs_mask = (plane < eff_thresh)
-                        
-                        # Condition 2: Relative drop from background (wire/hair detect)
-                        # avg_bg computed per-column from min values (same as V31 avg_bg logic)
-                        plane_min_1d = np.min(plane, axis=0)  # 1D: min brightness per column
-                        avg_bg = np.mean(plane_min_1d[start_pixel:end_pixel]) if end_pixel > start_pixel else np.mean(plane_min_1d)
-                        # sensitivity band: purity (0-100) maps to 0-120 drop range
-                        sensitivity_drop = max(5, int(purity * 1.2))
-                        rel_mask = (plane < (avg_bg - sensitivity_drop))
-                        
-                        raw_def_mask = abs_mask | rel_mask  # EITHER condition fires
+                        raw_def_mask = abs_mask
                     else:
                         # LIGHT DEFECT mode:
                         # Background reference:
@@ -12354,6 +12325,10 @@ class MainDashboard(QMainWindow):
                 if counts[ch] > 1:
                     long_channels.append(ch)
 
+            # Real-time 1:1 Operating LED Bar update on EVERY frame (clears immediately when no defect)
+            if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
+                self.operating_led_bar.set_active_channels(frame_channels)
+
             if frame_channels:
                 meta = getattr(self, '_frame_meta', {}).get(source)
                 # Phase 3 (OFF by default): ESP32 fires at line L + D. Falls back to the
@@ -12361,9 +12336,6 @@ class MainDashboard(QMainWindow):
                 if getattr(self, 'line_sync', None) and self.line_sync.active():
                     if self.line_sync.fire_decision(source, dec, meta):
                         return
-                # Light up operating LEDs on Main Window footer
-                if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
-                    self.operating_led_bar.set_active_channels(frame_channels)
                 delay_ms, pulse_ms = self.get_ejector_config()
                 frame_ms = getattr(self, '_frame_interval_ms', {}).get(source, 40.0)
                 # Responsive pneumatic pulses: matches valve hardware timing (~20-25ms)
