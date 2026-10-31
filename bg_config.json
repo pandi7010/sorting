@@ -1,0 +1,18 @@
+{
+    "camera_thresh": {
+        "FRONT": {
+            "lower": 37,
+            "upper": 221,
+            "band_mode": false
+        },
+        "REAR": {
+            "lower": 60,
+            "upper": 164,
+            "band_mode": false
+        }
+    },
+    "thresh_lower": 37,
+    "thresh_upper": 221,
+    "band_mode": false,
+    "wave_mode": "BLUE"
+}

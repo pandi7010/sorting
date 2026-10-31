@@ -1,0 +1,16 @@
+{
+    "_note": "Phase 3 settings. Line sync stays OFF until features_config.json line_sync_enabled = true AND camera_trigger_confirmed = true AND ejector firmware v3.0. See PHASE3_GUIDE.md.",
+    "camera_trigger_confirmed": false,
+    "nozzle_distance_mm": 55.0,
+    "speed_mps": 3.5,
+    "valve_ms": 1.0,
+    "rear_offset_mm": 0.0,
+    "trigger_mode": "LINE",
+    "line_rate_hz": 10000,
+    "frame_height": 32,
+    "lead_lines": 3,
+    "tail_lines": 3,
+    "min_pulse_lines": 10,
+    "max_pulse_ms": 50.0,
+    "late_tolerance_lines": 2
+}

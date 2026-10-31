@@ -1,0 +1,43 @@
+{
+  "FRONT": {
+    "ip": "192.168.1.101",
+    "exposure": 65,
+    "ana_gain": 3,
+    "dig_gain": 50,
+    "r_gain": 100,
+    "g_gain": 100,
+    "b_gain": 120,
+    "sn": "075002923007",
+    "start_pixel": 23,
+    "end_pixel": 3897,
+    "roi_height": 200,
+    "roi_width": 4096,
+    "v_stretch": 3,
+    "gamma": 100,
+    "contrast": 100,
+    "saturation": 100,
+    "sharpness": 50,
+    "chute_roles": {
+      "1": "SECONDARY"
+    }
+  },
+  "REAR": {
+    "ip": "192.168.3.206",
+    "exposure": 100,
+    "ana_gain": 3,
+    "dig_gain": 50,
+    "r_gain": 80,
+    "g_gain": 80,
+    "b_gain": 85,
+    "sn": "076011622362",
+    "start_pixel": 60,
+    "end_pixel": 3981,
+    "roi_height": 200,
+    "roi_width": 4096,
+    "v_stretch": 3,
+    "gamma": 100,
+    "contrast": 100,
+    "saturation": 100,
+    "sharpness": 50
+  }
+}

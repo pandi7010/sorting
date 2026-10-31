@@ -1,0 +1,7 @@
+{
+    "ai_sim": {
+        "thresh": "10",
+        "purity": "9",
+        "scale": "60"
+    }
+}

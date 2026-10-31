@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 (30-Pin) to 74HC595 Visual Connection</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #222; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .diagram-container { display: flex; justify-content: space-around; align-items: center; width: 100%; max-width: 1000px; margin-top: 50px; position: relative; }
+        
+        .box { background-color: #333; border: 2px solid #555; border-radius: 10px; padding: 20px; text-align: center; z-index: 2; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .esp32 { border-color: #0078d7; width: 220px; }
+        .ic { border-color: #28a745; width: 220px; }
+        .power { border-color: #dc3545; width: 220px; position: absolute; top: -150px; left: 50%; transform: translateX(-50%); }
+        
+        .pin { display: flex; justify-content: space-between; background: #444; margin: 5px 0; padding: 8px 10px; border-radius: 4px; font-size: 14px; position: relative; }
+        .pin-left { text-align: left; font-weight: bold; }
+        .pin-right { text-align: right; color: #ccc; }
+        
+        h1 { color: #fff; margin-bottom: 10px; }
+        p { color: #bbb; text-align: center; max-width: 800px; margin-bottom: 30px;}
+        
+        .legend { margin-top: 20px; margin-bottom: 40px; background: #333; padding: 15px; border-radius: 8px; border: 1px solid #555; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .legend-item { display: flex; align-items: center; gap: 10px; }
+        .color-box { width: 30px; height: 5px; }
+
+        table { width: 100%; max-width: 800px; margin-top: 50px; border-collapse: collapse; background: #333; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #444; }
+        th { background: #444; color: #fff; }
+        tr:hover { background: #3a3a3a; }
+        
+        /* Updated colors matching user image */
+        .data-text { color: #2196f3; font-weight: bold; } /* Blue */
+        .clock-text { color: #4CAF50; font-weight: bold; } /* Green */
+        .latch-text { color: #ffeb3b; font-weight: bold; } /* Yellow */
+        .vcc-text { color: #f44336; font-weight: bold; } /* Red */
+        .gnd-text { color: #9e9e9e; font-weight: bold; } /* Black/Grey */
+    </style>
+</head>
+<body>
+    <h1>ESP32 (30-Pin) & 74HC595 Pinout Visual</h1>
+    <p>இந்த வரைபடம் நீங்கள் கேட்ட 30-பின் ESP32 மற்றும் D12, D13, D14 பின்களுக்காக பிரத்யேகமாக உருவாக்கப்பட்டுள்ளது.</p>
+
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background:#2196f3;"></div> Data (D14) - Blue</div>
+        <div class="legend-item"><div class="color-box" style="background:#4CAF50;"></div> Clock (D13) - Green</div>
+        <div class="legend-item"><div class="color-box" style="background:#ffeb3b;"></div> Latch (D12) - Yellow</div>
+        <div class="legend-item"><div class="color-box" style="background:#f44336;"></div> 5V (VCC) - Red</div>
+        <div class="legend-item"><div class="color-box" style="background:#9e9e9e;"></div> Ground (GND) - Black</div>
+    </div>
+
+    <table>
+        <tr>
+            <th>ESP32 Pin</th>
+            <th>Wire Color</th>
+            <th>74HC595 Pin</th>
+            <th>External 5V Power Supply</th>
+        </tr>
+        <tr>
+            <td><span class="vcc-text">VIN (5V in ESP32)</span></td>
+            <td><span class="vcc-text">Red Wire (+5V)</span></td>
+            <td>Pin 16 (VCC) & Pin 10 (SRCLR)</td>
+            <td>Positive (+) Terminal</td>
+        </tr>
+        <tr>
+            <td><span class="gnd-text">GND (Common)</span></td>
+            <td><span class="gnd-text">Black Wire (GND)</span></td>
+            <td>Pin 8 (GND) & Pin 13 (OE)</td>
+            <td>Negative (-) Terminal</td>
+        </tr>
+        <tr>
+            <td><span class="data-text">GPIO 14 (D14)</span></td>
+            <td><span class="data-text">Blue Wire (Data)</span></td>
+            <td>Pin 14 (SER / Data)</td>
+            <td>--</td>
+        </tr>
+        <tr>
+            <td><span class="clock-text">GPIO 13 (D13)</span></td>
+            <td><span class="clock-text">Green Wire (Clock)</span></td>
+            <td>Pin 11 (SRCLK / Clock)</td>
+            <td>--</td>
+        </tr>
+        <tr>
+            <td><span class="latch-text">GPIO 12 (D12)</span></td>
+            <td><span class="latch-text">Yellow Wire (Latch)</span></td>
+            <td>Pin 12 (RCLK / Latch)</td>
+            <td>--</td>
+        </tr>
+    </table>
+</body>
+</html>

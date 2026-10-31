@@ -1,0 +1,6 @@
+# Ejector Test Panel - exact versions (tested 16 Oct 2026 on Python 3.10.11, Windows 10)
+# Install:  python -m pip install -r requirements_test_panel.txt
+PyQt5==5.15.11
+PyQt5-Qt5==5.15.2
+PyQt5_sip==12.19.0
+pyserial==3.5

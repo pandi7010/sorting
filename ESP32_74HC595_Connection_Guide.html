@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 & 74HC595 Connection Guide</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1, h2 {
+            color: #0056b3;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-left: 5px solid #ffeeba;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-left: 5px solid #bee5eb;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #0056b3;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ESP32 & 74HC595 Shift Register Connection Guide</h1>
+    <p>This guide provides instructions on how to connect an ESP32 micro-controller to a 74HC595 Shift Register IC using an <strong>External 5V Power Supply</strong>.</p>
+
+    <div class="warning">
+        <strong>⚠️ IMPORTANT (மிக முக்கியம்):</strong> You MUST connect the Ground (GND) of the external 5V power supply to the Ground (GND) of the ESP32. Without this common ground, the data signals will not work.
+    </div>
+
+    <div class="info">
+        <strong>ℹ️ Note on Logic Levels:</strong> The ESP32 outputs 3.3V logic, while a 5V-powered 74HC595 expects 5V logic. Direct connection usually works, but for maximum reliability in long-term projects, using a <strong>74HCT595</strong> or a logic level shifter is recommended.
+    </div>
+
+    <h2>Visual Pin Diagram</h2>
+    <div class="mermaid">
+        graph LR
+            subgraph "External 5V Supply"
+                V5[5V Positive +]
+                VGND[5V Ground -]
+            end
+
+            subgraph "ESP32"
+                EGND[GND]
+                D23[GPIO 23 - Data]
+                D18[GPIO 18 - Clock]
+                D19[GPIO 19 - Latch]
+            end
+
+            subgraph "74HC595 Shift Register"
+                VCC[Pin 16: VCC]
+                GND[Pin 8: GND]
+                SER[Pin 14: SER/Data]
+                SRCLK[Pin 11: SRCLK/Clock]
+                RCLK[Pin 12: RCLK/Latch]
+                OE[Pin 13: OE - Output Enable]
+                SRCLR[Pin 10: SRCLR - Clear]
+            end
+
+            V5 -->|Connect to| VCC
+            V5 -->|Connect to| SRCLR
+            
+            VGND -->|Connect to| GND
+            VGND -->|Common Ground| EGND
+            VGND -->|Enable Output| OE
+            
+            D23 -->|Data Signal| SER
+            D18 -->|Clock Signal| SRCLK
+            D19 -->|Latch Signal| RCLK
+    </div>
+
+    <h2>English Connection Guide</h2>
+    <table>
+        <tr>
+            <th>From</th>
+            <th>To (74HC595 Pin)</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>External 5V (+)</td>
+            <td>Pin 16 (VCC)</td>
+            <td>Main Power for IC</td>
+        </tr>
+        <tr>
+            <td>External 5V (-) GND</td>
+            <td>Pin 8 (GND)</td>
+            <td>Ground for IC</td>
+        </tr>
+        <tr>
+            <td>External 5V (-) GND</td>
+            <td>ESP32 GND</td>
+            <td><strong>Common Ground (Crucial)</strong></td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 23</td>
+            <td>Pin 14 (SER)</td>
+            <td>Serial Data Input</td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 18</td>
+            <td>Pin 11 (SRCLK)</td>
+            <td>Shift Register Clock</td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 19</td>
+            <td>Pin 12 (RCLK)</td>
+            <td>Storage Register Clock (Latch)</td>
+        </tr>
+        <tr>
+            <td>GND</td>
+            <td>Pin 13 (OE)</td>
+            <td>Output Enable (Active Low)</td>
+        </tr>
+        <tr>
+            <td>External 5V (+)</td>
+            <td>Pin 10 (SRCLR)</td>
+            <td>Clear (Active Low, connect to HIGH to disable)</td>
+        </tr>
+    </table>
+
+    <hr>
+
+    <h2>தமிழ் இணைப்பு வழிகாட்டி (Tamil Guide)</h2>
+    <p>ESP32 மற்றும் 74HC595 ஷிப்ட் ரெஜிஸ்டரை வெளிப்புற 5V பவர் சப்ளையுடன் இணைப்பதற்கான வழிகாட்டி:</p>
+    
+    <table>
+        <tr>
+            <th>எங்கிருந்து (From)</th>
+            <th>எங்கு (To 74HC595)</th>
+            <th>காரணம் (Purpose)</th>
+        </tr>
+        <tr>
+            <td>வெளிப்புற 5V (+)</td>
+            <td>Pin 16 (VCC)</td>
+            <td>ஐசிக்கான (IC) முக்கிய மின்சாரம்</td>
+        </tr>
+        <tr>
+            <td>வெளிப்புற 5V (-) GND</td>
+            <td>Pin 8 (GND)</td>
+            <td>ஐசிக்கான கிரவுண்ட்</td>
+        </tr>
+        <tr>
+            <td>வெளிப்புற 5V (-) GND</td>
+            <td>ESP32 GND</td>
+            <td><strong>Common Ground (கட்டாயம் இணைக்க வேண்டும்)</strong></td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 23</td>
+            <td>Pin 14 (SER)</td>
+            <td>டேட்டா சிக்னல் (Data)</td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 18</td>
+            <td>Pin 11 (SRCLK)</td>
+            <td>க்ளாக் சிக்னல் (Clock)</td>
+        </tr>
+        <tr>
+            <td>ESP32 GPIO 19</td>
+            <td>Pin 12 (RCLK)</td>
+            <td>லாட்ச் சிக்னல் (Latch)</td>
+        </tr>
+        <tr>
+            <td>GND</td>
+            <td>Pin 13 (OE)</td>
+            <td>அவுட்புட்களை செயல்பட வைக்கும்</td>
+        </tr>
+        <tr>
+            <td>வெளிப்புற 5V (+)</td>
+            <td>Pin 10 (SRCLR)</td>
+            <td>ரெஜிஸ்டர் ரீசெட் ஆவதைத் தடுக்கும்</td>
+        </tr>
+    </table>
+
+</div>
+
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+</script>
+
+</body>
+</html>

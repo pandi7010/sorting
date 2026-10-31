@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 70 70">
+  <defs>
+    <filter id="redGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bgGrad" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#330000"/>
+      <stop offset="60%" stop-color="#1a0000"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </radialGradient>
+  </defs>
+  <!-- Outer glow ring -->
+  <circle cx="35" cy="35" r="32" fill="none" stroke="#ff1744" stroke-width="2" opacity="0.4" filter="url(#redGlow)"/>
+  <!-- Main circle -->
+  <circle cx="35" cy="35" r="30" fill="url(#bgGrad)" stroke="#ff1744" stroke-width="2.5"/>
+  <!-- Power icon - arc -->
+  <path d="M 25 22 A 16 16 0 1 0 45 22" fill="none" stroke="#ff1744" stroke-width="3" stroke-linecap="round" filter="url(#redGlow)"/>
+  <!-- Power icon - vertical line -->
+  <line x1="35" y1="14" x2="35" y2="30" stroke="#ff1744" stroke-width="3" stroke-linecap="round" filter="url(#redGlow)"/>
+</svg>

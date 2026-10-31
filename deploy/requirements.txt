@@ -1,0 +1,11 @@
+# LAMTON V2 colour sorter - REQUIRED Python packages (exact, tested versions)
+# Python 3.10 - 3.13, 64-bit (3.12 recommended; numpy 2.2.6 has no Python 3.14 build).
+# Installed by INSTALL.bat into .venv:   .venv\Scripts\python -m pip install -r requirements.txt
+# The MindVision camera SDK is NOT a pip package: install it from drivers\ (see INSTALL_NEW_PC.md).
+PyQt5==5.15.11
+PyQt5-Qt5==5.15.2
+PyQt5_sip==12.19.0
+numpy==2.2.6
+opencv-python==5.0.0.93
+pyserial==3.5
+pymodbus==3.15.0

@@ -1,0 +1,13 @@
+{
+    "_note": "Shared by Phase 2 (latency report), Phase 3 (camera timing per product) and Phase 4 (capture). Sizes in mm. Camera values are SUGGESTIONS only - nothing is applied automatically. crop_size 224 = the CNN project input (MobileNetV2, torchvision ImageFolder, replicate-pad to square then resize).",
+    "mm_per_px_across": 0.085,
+    "products": {
+        "RICE":      {"length_mm": 7,  "width_mm": 2.5, "min_size_mm": 1.5, "max_size_mm": 12, "crop_pad_px": 6,  "crop_size": 224,  "line_rate_hz": 15000, "frame_height": 32, "threshold": 30},
+        "PULSES":    {"length_mm": 7,  "width_mm": 6,   "min_size_mm": 2.0, "max_size_mm": 14, "crop_pad_px": 6,  "crop_size": 224,  "line_rate_hz": 15000, "frame_height": 32, "threshold": 30},
+        "DHALL":     {"length_mm": 6,  "width_mm": 5,   "min_size_mm": 1.5, "max_size_mm": 12, "crop_pad_px": 6,  "crop_size": 224, "line_rate_hz": 20000, "frame_height": 32, "threshold": 30},
+        "PLASTICS":  {"length_mm": 5,  "width_mm": 4,   "min_size_mm": 1.5, "max_size_mm": 15, "crop_pad_px": 6,  "crop_size": 224,  "line_rate_hz": 12000, "frame_height": 32, "threshold": 30},
+        "ALMONDS":   {"length_mm": 24, "width_mm": 14,  "min_size_mm": 6,   "max_size_mm": 35, "crop_pad_px": 10, "crop_size": 224, "line_rate_hz": 12000, "frame_height": 64, "threshold": 30},
+        "CASHEWS":   {"length_mm": 25, "width_mm": 15,  "min_size_mm": 5,   "max_size_mm": 35, "crop_pad_px": 10, "crop_size": 224, "line_rate_hz": 12000, "frame_height": 64, "threshold": 30},
+        "SEEDS_3MM": {"length_mm": 3,  "width_mm": 3,   "min_size_mm": 1.0, "max_size_mm": 6,  "crop_pad_px": 4,  "crop_size": 224,  "line_rate_hz": 20000, "frame_height": 32, "threshold": 30}
+    }
+}

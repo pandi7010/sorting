@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>74HC595 Daisy Chain (1-8 ICs) Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #fff; padding: 20px; line-height: 1.6; }
+        h1 { color: #4CAF50; text-align: center; }
+        p { text-align: center; font-size: 1.1em; color: #ccc; }
+        .mermaid { background-color: #fff; padding: 20px; border-radius: 8px; margin: 20px auto; max-width: 1200px; text-align: center; }
+        .explanation { max-width: 900px; margin: 30px auto; background-color: #2d2d2d; padding: 20px; border-radius: 8px; border-left: 5px solid #4CAF50; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #444; padding: 10px; text-align: left; }
+        th { background-color: #4CAF50; color: white; }
+        tr:nth-child(even) { background-color: #333; }
+        .highlight { color: #ffeb3b; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>1 முதல் 8 ஷிப்ட் ரெஜிஸ்டர்களை இணைப்பதற்கான வரைபடம் (Daisy Chain Circuit)</h1>
+    <p>ஒன்றுக்கும் மேற்பட்ட 74HC595 IC-களை எப்படி தொடர்ச்சியாக (Series/Cascade) இணைப்பது என்பதற்கான வழிகாட்டி.</p>
+
+    <div class="explanation">
+        <h3>எப்படி இணைப்பது? (How to Connect)</h3>
+        <ul>
+            <li><span class="highlight">Clock (Pin 11) & Latch (Pin 12):</span> நீங்கள் எத்தனை IC பயன்படுத்தினாலும் (1 முதல் 8 வரை), அனைத்தின் Clock மற்றும் Latch பின்களை ஒன்றாக இணைத்து ESP32-உடன் இணைக்க வேண்டும் (Common Connection).</li>
+            <li><span class="highlight">Data (Pin 14):</span> ESP32-லிருந்து வரும் Data வயர் <b>முதல் IC-யின் Pin 14</b>-க்கு மட்டுமே செல்லும்.</li>
+            <li><span class="highlight">Serial Out (Pin 9 - Q7'):</span> முதல் IC-யின் Pin 9-லிருந்து வயரை எடுத்து <b>இரண்டாவது IC-யின் Pin 14-க்கு (Data)</b> கொடுக்க வேண்டும். இதைப் போலவே 2வது IC-யிலிருந்து 3வதுக்கும் தொடர்ச்சியாக இணைக்க வேண்டும்.</li>
+            <li><span class="highlight">Power & GND:</span> அனைத்து IC-களுக்கும் 5V (Pin 16, Pin 10) மற்றும் GND (Pin 8, Pin 13) சப்ளை பொதுவாக கொடுக்கப்பட வேண்டும்.</li>
+        </ul>
+    </div>
+
+    <div class="mermaid">
+        graph TD
+            subgraph "ESP32 Microcontroller"
+                D23[GPIO 23: Data]
+                D18[GPIO 18: Clock]
+                D19[GPIO 19: Latch]
+            end
+
+            subgraph "IC 1 (முதல் 74HC595)"
+                IC1_SER[Pin 14: Data In]
+                IC1_CLK[Pin 11: Clock]
+                IC1_LAT[Pin 12: Latch]
+                IC1_OUT[Pin 9: Serial Out Q7']
+            end
+
+            subgraph "IC 2 (இரண்டாவது 74HC595)"
+                IC2_SER[Pin 14: Data In]
+                IC2_CLK[Pin 11: Clock]
+                IC2_LAT[Pin 12: Latch]
+                IC2_OUT[Pin 9: Serial Out Q7']
+            end
+
+            subgraph "IC 3 (மூன்றாவது 74HC595)"
+                IC3_SER[Pin 14: Data In]
+                IC3_CLK[Pin 11: Clock]
+                IC3_LAT[Pin 12: Latch]
+                IC3_OUT[Pin 9: Serial Out Q7']
+            end
+            
+            subgraph "IC 8 வரை தொடரும்..."
+                IC8_SER[Pin 14: Data In]
+                IC8_CLK[Pin 11: Clock]
+                IC8_LAT[Pin 12: Latch]
+            end
+
+            %% Data Flow (Daisy Chain)
+            D23 -->|Data Signal| IC1_SER
+            IC1_OUT -->|Data Forwarding| IC2_SER
+            IC2_OUT -->|Data Forwarding| IC3_SER
+            IC3_OUT -.->|...தொடர்ச்சியாக...| IC8_SER
+            
+            %% Clock & Latch (Shared)
+            D18 -->|Shared Clock| IC1_CLK
+            D18 -->|Shared Clock| IC2_CLK
+            D18 -->|Shared Clock| IC3_CLK
+            D18 -.->|Shared Clock| IC8_CLK
+            
+            D19 -->|Shared Latch| IC1_LAT
+            D19 -->|Shared Latch| IC2_LAT
+            D19 -->|Shared Latch| IC3_LAT
+            D19 -.->|Shared Latch| IC8_LAT
+
+            classDef esp fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff;
+            classDef ic fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff;
+            
+            class D23,D18,D19 esp;
+            class IC1_SER,IC1_CLK,IC1_LAT,IC1_OUT,IC2_SER,IC2_CLK,IC2_LAT,IC2_OUT,IC3_SER,IC3_CLK,IC3_LAT,IC3_OUT,IC8_SER,IC8_CLK,IC8_LAT ic;
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# LAMTON V2 - CNN packages, CPU only (PyTorch MobileNetV2 inference + training, YOLO, ONNX).
+# Same versions as the CNN project D:\CNN\CNN (torch 2.14.0, torchvision 0.29.1, ultralytics 8.4.163).
+# On Windows the normal PyPI torch is the CPU build (no CUDA packages). GPU later: UPGRADE_TO_GPU.bat.
+# Installed by INSTALL.bat as part of the normal install. The sorter itself starts without them.
+torch==2.14.0
+torchvision==0.29.1
+ultralytics==8.4.163
+onnx==1.23.2
+onnxruntime==1.23.2

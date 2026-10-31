@@ -1,0 +1,10 @@
+{
+    "last_port": "COM13",
+    "ejector_port": "COM24",
+    "modbus_enabled": true,
+    "auto_connect": true,
+    "ai_model_path": "No model uploaded (using default).",
+    "ai_enabled": false,
+    "deep_learning_confidence": 95,
+    "vibrator_port": "COM7"
+}

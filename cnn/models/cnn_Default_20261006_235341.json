@@ -1,0 +1,218 @@
+{
+  "type": "cnn",
+  "architecture": "MobileNetV2",
+  "model": "cnn_Default_20261006_235341.pth",
+  "trained": "2026-10-06 23:53",
+  "dataset": "C:\\Users\\freedom\\Downloads\\CNN\\CNN\\app\\programs\\Default\\dataset",
+  "classes": [
+    "GOOD",
+    "TESTA"
+  ],
+  "images": {
+    "GOOD": 45,
+    "TESTA": 27
+  },
+  "train_images": 58,
+  "val_images": 14,
+  "epochs_run": 30,
+  "best_epoch": 30,
+  "val_accuracy": 1.0,
+  "val_balanced_accuracy": 1.0,
+  "per_class": {
+    "GOOD": {
+      "correct": 9,
+      "total": 9,
+      "accuracy": 1.0
+    },
+    "TESTA": {
+      "correct": 5,
+      "total": 5,
+      "accuracy": 1.0
+    }
+  },
+  "pretrained": true,
+  "device": "cuda",
+  "history": [
+    {
+      "epoch": 1,
+      "loss": 0.6937,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5444
+    },
+    {
+      "epoch": 2,
+      "loss": 0.5986,
+      "val_acc": 0.7143,
+      "val_balanced_acc": 0.6
+    },
+    {
+      "epoch": 3,
+      "loss": 0.5616,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5
+    },
+    {
+      "epoch": 4,
+      "loss": 0.5281,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5
+    },
+    {
+      "epoch": 5,
+      "loss": 0.467,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5
+    },
+    {
+      "epoch": 6,
+      "loss": 0.3946,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5
+    },
+    {
+      "epoch": 7,
+      "loss": 0.3808,
+      "val_acc": 0.6429,
+      "val_balanced_acc": 0.5
+    },
+    {
+      "epoch": 8,
+      "loss": 0.3353,
+      "val_acc": 0.7143,
+      "val_balanced_acc": 0.6
+    },
+    {
+      "epoch": 9,
+      "loss": 0.2647,
+      "val_acc": 0.7857,
+      "val_balanced_acc": 0.7
+    },
+    {
+      "epoch": 10,
+      "loss": 0.2044,
+      "val_acc": 0.7857,
+      "val_balanced_acc": 0.7
+    },
+    {
+      "epoch": 11,
+      "loss": 0.1831,
+      "val_acc": 0.7857,
+      "val_balanced_acc": 0.7
+    },
+    {
+      "epoch": 12,
+      "loss": 0.1853,
+      "val_acc": 0.8571,
+      "val_balanced_acc": 0.8
+    },
+    {
+      "epoch": 13,
+      "loss": 0.1313,
+      "val_acc": 0.8571,
+      "val_balanced_acc": 0.8
+    },
+    {
+      "epoch": 14,
+      "loss": 0.1389,
+      "val_acc": 0.8571,
+      "val_balanced_acc": 0.8
+    },
+    {
+      "epoch": 15,
+      "loss": 0.0742,
+      "val_acc": 0.8571,
+      "val_balanced_acc": 0.8
+    },
+    {
+      "epoch": 16,
+      "loss": 0.1787,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 17,
+      "loss": 0.0434,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 18,
+      "loss": 0.0391,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 19,
+      "loss": 0.0581,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 20,
+      "loss": 0.0264,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 21,
+      "loss": 0.0467,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 22,
+      "loss": 0.0524,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 23,
+      "loss": 0.0494,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 24,
+      "loss": 0.0393,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 25,
+      "loss": 0.0209,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 26,
+      "loss": 0.0275,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 27,
+      "loss": 0.0102,
+      "val_acc": 0.9286,
+      "val_balanced_acc": 0.9
+    },
+    {
+      "epoch": 28,
+      "loss": 0.009,
+      "val_acc": 1.0,
+      "val_balanced_acc": 1.0
+    },
+    {
+      "epoch": 29,
+      "loss": 0.0231,
+      "val_acc": 1.0,
+      "val_balanced_acc": 1.0
+    },
+    {
+      "epoch": 30,
+      "loss": 0.125,
+      "val_acc": 1.0,
+      "val_balanced_acc": 1.0
+    }
+  ],
+  "note": "Accuracy is measured on validation images that were not used for training."
+}

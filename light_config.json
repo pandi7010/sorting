@@ -1,0 +1,42 @@
+{
+    "WHITE FRONT TOP": {
+        "enabled": false,
+        "lux": 500
+    },
+    "WHITE FRONT BOTTOM": {
+        "enabled": false,
+        "lux": 500
+    },
+    "WHITE BACK TOP": {
+        "enabled": true,
+        "lux": 500
+    },
+    "WHITE BACK BOTTOM": {
+        "enabled": true,
+        "lux": 500
+    },
+    "RED FRONT": {
+        "enabled": false,
+        "lux": 500
+    },
+    "GREEN FRONT": {
+        "enabled": false,
+        "lux": 500
+    },
+    "BLUE FRONT": {
+        "enabled": true,
+        "lux": 500
+    },
+    "RED BACK": {
+        "enabled": false,
+        "lux": 500
+    },
+    "GREEN BACK": {
+        "enabled": false,
+        "lux": 500
+    },
+    "BLUE BACK": {
+        "enabled": true,
+        "lux": 500
+    }
+}

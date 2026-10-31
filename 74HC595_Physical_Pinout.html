@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>74HC595 Physical Pin Diagram</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        h1 { color: #4CAF50; text-align: center; }
+        p { text-align: center; font-size: 1.1em; color: #ccc; max-width: 800px; line-height: 1.6; }
+        
+        .ic-container { display: flex; justify-content: center; align-items: center; margin-top: 40px; }
+        
+        .ic-body { width: 140px; height: 350px; background-color: #222; border: 2px solid #555; border-radius: 8px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .notch { width: 40px; height: 20px; background-color: #1e1e1e; border-bottom: 2px solid #555; border-radius: 0 0 20px 20px; position: absolute; top: -2px; }
+        .ic-text { transform: rotate(-90deg); color: #777; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
+        
+        .pins-left, .pins-right { display: flex; flex-direction: column; justify-content: space-between; height: 320px; }
+        .pins-left { margin-right: -5px; z-index: 1; }
+        .pins-right { margin-left: -5px; z-index: 1; }
+        
+        .pin-wrapper { display: flex; align-items: center; height: 25px; margin: 8px 0; }
+        .pin-wrapper-right { justify-content: flex-end; flex-direction: row-reverse; }
+        
+        .pin { width: 30px; height: 12px; background-color: #silver; background: linear-gradient(to bottom, #d4d4d4, #888, #d4d4d4); border: 1px solid #555; border-radius: 2px; }
+        
+        .pin-label { padding: 0 15px; font-weight: bold; font-size: 15px; width: 150px; }
+        .label-left { text-align: right; }
+        .label-right { text-align: left; }
+        
+        /* Colors for different pin functions */
+        .color-vcc { color: #f44336; }
+        .color-gnd { color: #9e9e9e; }
+        .color-data { color: #00bcd4; }
+        .color-clock { color: #ffc107; }
+        .color-latch { color: #e91e63; }
+        .color-out { color: #4CAF50; }
+        .color-serial-out { color: #9c27b0; }
+        
+        .explanation { margin-top: 50px; max-width: 900px; background-color: #2d2d2d; padding: 20px; border-radius: 8px; border-left: 5px solid #4CAF50; }
+        ul { line-height: 1.8; }
+    </style>
+</head>
+<body>
+
+    <h1>74HC595 Physical Pinout (IC வரைபடம்)</h1>
+    <p>IC-யை நேராகப் பிடிக்கும்போது (மேலே உள்ள சிறிய பள்ளம் / Notch-ஐ கவனித்து), இடதுபுறம் மேலிருந்து 1-ல் தொடங்கி, வலதுபுறம் மேலே 16-ல் முடியும்.</p>
+
+    <div class="ic-container">
+        <!-- Left Pins (1 to 8) -->
+        <div class="pins-left">
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q1 (Output 1) - 1</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q2 (Output 2) - 2</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q3 (Output 3) - 3</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q4 (Output 4) - 4</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q5 (Output 5) - 5</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q6 (Output 6) - 6</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-out">Q7 (Output 7) - 7</div><div class="pin"></div></div>
+            <div class="pin-wrapper"><div class="pin-label label-left color-gnd">GND - 8</div><div class="pin"></div></div>
+        </div>
+
+        <!-- IC Body -->
+        <div class="ic-body">
+            <div class="notch"></div>
+            <div class="ic-text">74HC595</div>
+        </div>
+
+        <!-- Right Pins (16 down to 9) -->
+        <div class="pins-right">
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-vcc">16 - VCC (5V)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-out">15 - Q0 (Output 0)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-data">14 - SER (Data In)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-gnd">13 - OE (Enable)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-latch">12 - RCLK (Latch)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-clock">11 - SRCLK (Clock)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-vcc">10 - SRCLR (Clear)</div><div class="pin"></div></div>
+            <div class="pin-wrapper pin-wrapper-right"><div class="pin-label label-right color-serial-out">9 - Q7' (Serial Out)</div><div class="pin"></div></div>
+        </div>
+    </div>
+
+    <div class="explanation">
+        <h3>எந்த பின் எதற்கு? (Pin Functions in Tamil)</h3>
+        <ul>
+            <li><b class="color-out">Pins 15, 1, 2, 3, 4, 5, 6, 7 (Q0 to Q7):</b> இவை அவுட்புட் பின்கள் (Output Pins). LED அல்லது ரிலேக்களை (Relays) இங்கே இணைக்க வேண்டும்.</li>
+            <li><b class="color-gnd">Pin 8 (GND):</b> மைனஸ் (-) கிரவுண்ட் உடன் இணைக்க வேண்டும்.</li>
+            <li><b class="color-vcc">Pin 16 (VCC):</b> பிளஸ் (+) 5V பவர் சப்ளையுடன் இணைக்க வேண்டும்.</li>
+            <li><b class="color-data">Pin 14 (SER):</b> டேட்டா பின். ESP32-லிருந்து வரும் Data வயரை (முதல் IC-க்கு மட்டும்) இங்கு இணைக்க வேண்டும்.</li>
+            <li><b class="color-clock">Pin 11 (SRCLK):</b> க்ளாக் பின். எல்லா IC-களின் 11-வது பின்னும் ஒன்றாக இணைந்து ESP32-க்குச் செல்லும்.</li>
+            <li><b class="color-latch">Pin 12 (RCLK):</b> லாட்ச் பின். எல்லா IC-களின் 12-வது பின்னும் ஒன்றாக இணைந்து ESP32-க்குச் செல்லும்.</li>
+            <li><b class="color-serial-out">Pin 9 (Q7'):</b> சீரியல் அவுட் (Serial Out). ஒரு IC-யிலிருந்து அடுத்த IC-க்கு (Pin 14-க்கு) டேட்டாவைக் கடத்த (Daisy Chain) இது பயன்படுகிறது. 8-வது IC-யின் 9-வது பின் எங்கும் இணைக்கப்படாமல் காலியாக (Empty) விடப்படும்.</li>
+            <li><b class="color-gnd">Pin 13 (OE):</b> Output Enable. அவுட்புட் வேலை செய்ய இதை GND உடன் இணைக்க வேண்டும்.</li>
+            <li><b class="color-vcc">Pin 10 (SRCLR):</b> Shift Register Clear. ரீசெட் ஆவதைத் தடுக்க இதை 5V (VCC) உடன் இணைக்க வேண்டும்.</li>
+        </ul>
+    </div>
+
+</body>
+</html>
