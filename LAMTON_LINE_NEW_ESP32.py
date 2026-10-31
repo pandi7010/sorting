@@ -11138,7 +11138,7 @@ class BackgroundGraphWindow(QDialog):
             else:
                 current_active = set(raw_active)
 
-            min_pulse_sec = max(0.025, float(getattr(self, '_cached_ejector_pulse', 25.0)) / 1000.0)
+            min_pulse_sec = max(0.005, float(getattr(self, '_cached_ejector_pulse', 10.0)) / 1000.0)
             link = getattr(self.arduino, 'ejector_link', None)
             is_open = bool(link and getattr(link, 'is_open', False))
 
@@ -11963,7 +11963,7 @@ class MainDashboard(QMainWindow):
                             })
                 else:
                     # DARK DEFECT: check channel defect pixel volume (filters 1-px sensor noise, captures wire/needle & grains)
-                    min_def_px = max(2, int(scale / 3))
+                    min_def_px = max(4, int(scale / 2))
                     for v_idx in range(total_valves):
                         ch_idx = v_idx % num_channels
                         chute_idx = v_idx // num_channels

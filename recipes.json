@@ -424,8 +424,8 @@
         }
       },
       "ejector": {
-        "pulse": 25.0,
-        "delay": 5.0,
+        "pulse": 12.0,
+        "delay": 2.0,
         "gap": 5.0,
         "count": 1
       },
