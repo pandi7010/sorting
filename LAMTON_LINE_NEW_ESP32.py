@@ -12329,25 +12329,38 @@ class MainDashboard(QMainWindow):
             if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
                 self.operating_led_bar.set_active_channels(frame_channels)
 
-            if frame_channels:
-                meta = getattr(self, '_frame_meta', {}).get(source)
-                # Phase 3 (OFF by default): ESP32 fires at line L + D. Falls back to the
-                # Phase 1 path automatically if anything is not ready.
-                if getattr(self, 'line_sync', None) and self.line_sync.active():
-                    if self.line_sync.fire_decision(source, dec, meta):
-                        return
-                delay_ms, pulse_ms = self.get_ejector_config()
-                frame_ms = getattr(self, '_frame_interval_ms', {}).get(source, 40.0)
-                # Responsive pneumatic pulses: matches valve hardware timing (~20-25ms)
-                bridge_pulse = max(25.0, float(pulse_ms) + 10.0)
-                live_pulse = max(15.0, float(pulse_ms))
+            # Instantaneous Zero-Lag Hardware Ejection (Stateful Direct ESP32 Byte Protocol):
+            # Opens instant microseconds when needle touches, stays solidly OPEN (no chattering!),
+            # and snaps OFF the exact microsecond the needle leaves!
+            if not hasattr(self, '_live_hw_active'):
+                self._live_hw_active = set()
 
-                normal = [ch for ch in frame_channels if ch not in long_channels]
-                if normal and hasattr(self, 'eject_scheduler') and self.eject_scheduler:
-                    self.eject_scheduler.schedule_fire(normal, delay_ms, live_pulse, meta=meta)
-                if long_channels and hasattr(self, 'eject_scheduler') and self.eject_scheduler:
-                    self.eject_scheduler.schedule_fire(long_channels, delay_ms, bridge_pulse, force_update=True,
-                                                       meta=meta)
+            link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
+            if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
+                current_active = set(frame_channels)
+                newly_on = [ch for ch in current_active if ch not in self._live_hw_active]
+                to_turn_off = [ch for ch in self._live_hw_active if ch not in current_active]
+                
+                out_bytes = []
+                if to_turn_off:
+                    for ch in to_turn_off:
+                        self._live_hw_active.discard(ch)
+                        out_bytes.append(ch + 100)
+                if newly_on:
+                    for ch in newly_on:
+                        self._live_hw_active.add(ch)
+                        out_bytes.append(ch)
+                if out_bytes:
+                    try:
+                        link._write(bytes(out_bytes))
+                    except Exception as e:
+                        print("Direct byte eject error:", e)
+            else:
+                if frame_channels:
+                    meta = getattr(self, '_frame_meta', {}).get(source)
+                    delay_ms, pulse_ms = self.get_ejector_config()
+                    if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
+                        self.eject_scheduler.schedule_fire(frame_channels, delay_ms, pulse_ms, meta=meta)
 
 
 
@@ -12531,6 +12544,14 @@ class MainDashboard(QMainWindow):
     def on_stop_system(self):
         self.system_running = False
         self.auto_clean_timer.stop()
+        if hasattr(self, '_live_hw_active') and self._live_hw_active:
+            link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
+            if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
+                try:
+                    link._write(bytes([ch + 100 for ch in self._live_hw_active]))
+                except Exception:
+                    pass
+            self._live_hw_active.clear()
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()

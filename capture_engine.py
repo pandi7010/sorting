@@ -8,7 +8,7 @@ PIPELINE (each step in its own thread, so the camera is never slowed down):
 OUTPUT (one folder per session):
   <out_root>/<PRODUCT>_<date_time>/
       crops/<CLASS>/<CAM>_L<line>_<id>.png    224 x 224 squares, ready for the CNN project
-                                              (train with:  train_cnn.py --dataset <...>/crops)
+                                             (train with:  train_cnn.py --dataset <...>/crops)
       raw/<CLASS>/...                          (optional) the unscaled crop
       strips/<CAM>/strip_<CAM>_L<first>-<last>.jpg   the full continuous strip in chunks (optional)
       objects.csv                              one row per object (lines, pixels, mm, flags, files)
