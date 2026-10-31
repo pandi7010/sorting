@@ -9349,6 +9349,16 @@ from PyQt5.QtGui import QImage, QPixmap
 CAMERA_CONFIG_FILE = "camera_config.json"
 
 
+def _set_camera_hardware_height(h, target_h):
+    try:
+        res = mvsdk.CameraGetImageResolution(h)
+        mvsdk.CameraSetImageResolutionEx(h, 0xFF, 0, 0, res.iHOffsetFOV, 0, res.iWidth, int(target_h), 0, 0)
+        print(f"[CAMERA] Hardware buffer height set to {target_h} lines (ultra-fast {round(target_h/15.0, 1)} ms refresh)")
+    except Exception as e:
+        print(f"[CAMERA WARN] Could not set hardware frame height: {e}")
+
+
+
 # =============================================================================
 # DUAL CAMERA SETUP DIALOG (INDUSTRIAL STANDARD - SERIAL NUMBER BINDING)
 # =============================================================================
@@ -9896,6 +9906,7 @@ class CameraSetupDialog(QDialog):
             h = mvsdk.CameraInit(found_dev, -1, -1)
             mvsdk.CameraSetTriggerMode(h, 0)
             mvsdk.CameraSetIspOutFormat(h, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+            _set_camera_hardware_height(h, self.configs.get(self.current_cam, {}).get("roi_height", 64))
             mvsdk.CameraPlay(h)
             worker.camera_handle = h
             worker._raw_dev = found_dev
@@ -12696,6 +12707,7 @@ class MainDashboard(QMainWindow):
                             h = mvsdk.CameraInit(dev, -1, -1)
                             mvsdk.CameraSetTriggerMode(h, 0)
                             mvsdk.CameraSetIspOutFormat(h, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+                            _set_camera_hardware_height(h, configs.get("FRONT", {}).get("roi_height", 64))
                             mvsdk.CameraPlay(h)
                             self.camera_worker_front.camera_handle = h
                             self.camera_worker_front._raw_dev = dev
@@ -12721,6 +12733,7 @@ class MainDashboard(QMainWindow):
                             h = mvsdk.CameraInit(dev, -1, -1)
                             mvsdk.CameraSetTriggerMode(h, 0)
                             mvsdk.CameraSetIspOutFormat(h, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+                            _set_camera_hardware_height(h, configs.get("FRONT", {}).get("roi_height", 64))
                             mvsdk.CameraPlay(h)
                             self.camera_worker_front.camera_handle = h
                             self.camera_worker_front._raw_dev = dev
@@ -12750,6 +12763,7 @@ class MainDashboard(QMainWindow):
                             h = mvsdk.CameraInit(dev, -1, -1)
                             mvsdk.CameraSetTriggerMode(h, 0)
                             mvsdk.CameraSetIspOutFormat(h, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+                            _set_camera_hardware_height(h, configs.get("REAR", {}).get("roi_height", 64))
                             mvsdk.CameraPlay(h)
                             self.camera_worker_rear.camera_handle = h
                             self.camera_worker_rear._raw_dev = dev
@@ -12773,6 +12787,7 @@ class MainDashboard(QMainWindow):
                             h = mvsdk.CameraInit(dev, -1, -1)
                             mvsdk.CameraSetTriggerMode(h, 0)
                             mvsdk.CameraSetIspOutFormat(h, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+                            _set_camera_hardware_height(h, configs.get("REAR", {}).get("roi_height", 64))
                             mvsdk.CameraPlay(h)
                             self.camera_worker_rear.camera_handle = h
                             self.camera_worker_rear._raw_dev = dev
