@@ -45,8 +45,8 @@
         }
       },
       "ejector": {
-        "pulse": 15,
-        "delay": 80
+        "pulse": 10.0,
+        "delay": 2.0
       },
       "feeder_speed": 50,
       "algorithms": {
@@ -121,8 +121,8 @@
         }
       },
       "ejector": {
-        "pulse": 25,
-        "delay": 120
+        "pulse": 10.0,
+        "delay": 2.0
       },
       "feeder_speed": 35,
       "algorithms": {
@@ -192,8 +192,8 @@
         }
       },
       "ejector": {
-        "pulse": 3,
-        "delay": 100
+        "pulse": 10.0,
+        "delay": 2.0
       },
       "feeder_speed": 60,
       "algorithms": {
@@ -283,8 +283,8 @@
         }
       },
       "ejector": {
-        "pulse": 20,
-        "delay": 100
+        "pulse": 10.0,
+        "delay": 2.0
       },
       "feeder_speed": 50,
       "algorithms": {
@@ -353,8 +353,8 @@
         }
       },
       "ejector": {
-        "pulse": 20,
-        "delay": 100
+        "pulse": 10.0,
+        "delay": 2.0
       },
       "feeder_speed": 30,
       "algorithms": {
@@ -424,7 +424,7 @@
         }
       },
       "ejector": {
-        "pulse": 12.0,
+        "pulse": 10.0,
         "delay": 2.0,
         "gap": 5.0,
         "count": 1
@@ -456,7 +456,7 @@
           "GRAY A": {
             "channel": "BLUE",
             "mode": "DARK DEFECT",
-            "sens": "5",
+            "sens": "48",
             "scale": "10",
             "purity": "50"
           },
@@ -478,7 +478,7 @@
           "GRAY A": {
             "channel": "BLUE",
             "mode": "DARK DEFECT",
-            "sens": "5",
+            "sens": "48",
             "scale": "10",
             "purity": "50"
           },

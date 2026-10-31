@@ -12325,9 +12325,17 @@ class MainDashboard(QMainWindow):
                 if counts[ch] > 1:
                     long_channels.append(ch)
 
+            # Track per-camera active channels so FRONT and REAR cameras NEVER fight or cancel each other
+            if not hasattr(self, '_cam_active_channels'):
+                self._cam_active_channels = {"FRONT": set(), "REAR": set()}
+            self._cam_active_channels[source] = set(frame_channels)
+            
+            # Fused hardware active channels: defect if FRONT sees it OR REAR sees it!
+            current_active = self._cam_active_channels.get("FRONT", set()) | self._cam_active_channels.get("REAR", set())
+
             # Real-time 1:1 Operating LED Bar update on EVERY frame (clears immediately when no defect)
             if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
-                self.operating_led_bar.set_active_channels(frame_channels)
+                self.operating_led_bar.set_active_channels(sorted(current_active))
 
             # Instantaneous Zero-Lag Hardware Ejection (Stateful Direct ESP32 Byte Protocol):
             # Opens instant microseconds when needle touches, stays solidly OPEN (no chattering!),
@@ -12337,7 +12345,6 @@ class MainDashboard(QMainWindow):
 
             link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
             if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
-                current_active = set(frame_channels)
                 newly_on = [ch for ch in current_active if ch not in self._live_hw_active]
                 to_turn_off = [ch for ch in self._live_hw_active if ch not in current_active]
                 
