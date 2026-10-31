@@ -357,6 +357,10 @@ class EjectorLink:
         try:
             with self._write_lock:
                 self.ser.write(data)
+                try:
+                    self.ser.flush()
+                except Exception:
+                    pass
             return True
         except Exception as exc:
             self.counters["write_errors"] += 1
