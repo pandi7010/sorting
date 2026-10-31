@@ -9301,7 +9301,9 @@ class GigECameraWorker(QThread):
                         frame = frame[:, start_x: start_x + safe_roi_w, :]
 
                     # ⚠️ 4. மிக முக்கியம்: Memory Alignment (0xC0000409 எரரைத் தடுக்கும் மந்திர வரி)
-                    frame = np.ascontiguousarray(frame)
+                    # Own copy: rgb_buffer is rewritten by the next camera frame, so a view would tear
+                    # frames that are still queued / being evaluated (old + new needle position mixed).
+                    frame = np.array(frame, order='C', copy=True)
 
                     if self.is_rear:
                         frame = cv2.flip(frame, 1)
@@ -10070,7 +10072,8 @@ class BackgroundGraphWindow(QDialog):
         self.arduino = esp32_handler
         self.latest_frame = None
         if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            self.camera_worker.frame_ready.connect(self.update_live_frame)
+            # DirectConnection: runs in the camera thread, so no Qt event-queue backlog (always the newest frame)
+            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
 
         self.setStyleSheet("""
             QDialog { background-color: #1e272e; color: #ecf0f1; font-family: Segoe UI; }
@@ -10693,7 +10696,7 @@ class BackgroundGraphWindow(QDialog):
                 link = self.arduino.ejector_link
                 if getattr(link, 'is_open', False):
                     if getattr(link, 'mode', None) == 'ESP_BYTE':
-                        link._write(bytes([ch + 100 for ch in self.hw_active_channels]))
+                        link._write(bytes([ch + 100 for ch in list(self.hw_active_channels)]))
                     else:
                         link.stop_all()
             self.hw_active_channels.clear()
@@ -10778,7 +10781,7 @@ class BackgroundGraphWindow(QDialog):
                 link = self.arduino.ejector_link
                 if getattr(link, 'is_open', False):
                     if getattr(link, 'mode', None) == 'ESP_BYTE':
-                        link._write(bytes([ch + 100 for ch in self.hw_active_channels]))
+                        link._write(bytes([ch + 100 for ch in list(self.hw_active_channels)]))
                     else:
                         link.stop_all()
             self.hw_active_channels.clear()
@@ -10801,7 +10804,8 @@ class BackgroundGraphWindow(QDialog):
 
         self.camera_worker = self.rear_worker if self.camera_view == "REAR" else self.front_worker
         if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            self.camera_worker.frame_ready.connect(self.update_live_frame)
+            # DirectConnection: runs in the camera thread, so no Qt event-queue backlog (always the newest frame)
+            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
 
     def change_wave_mode(self, text):
         self.wave_mode = text
@@ -10919,7 +10923,15 @@ class BackgroundGraphWindow(QDialog):
         if frame is not None:
             self.latest_frame = frame
             if self.local_system_running:
-                self.evaluate_ejectors_instant(frame)
+                # Runs in the camera thread (DirectConnection): an unhandled exception in a PyQt5 slot aborts the
+                # program, so catch it here (the ESP watchdog closes any valve left open).
+                try:
+                    self.evaluate_ejectors_instant(frame)
+                except Exception as exc:
+                    _now = time.monotonic()
+                    if _now - getattr(self, '_eval_err_t', 0.0) >= 5.0:
+                        self._eval_err_t = _now
+                        print(f"[EJECT ERROR] {type(exc).__name__}: {exc}")
 
     def evaluate_ejectors_instant(self, frame):
         if not self.local_system_running:
@@ -10927,7 +10939,7 @@ class BackgroundGraphWindow(QDialog):
                 link = getattr(self.arduino, 'ejector_link', None) if self.arduino else None
                 if link and getattr(link, 'is_open', False):
                     if getattr(link, 'mode', None) == "ESP_BYTE":
-                        link._write(bytes([ch + 100 for ch in self.hw_active_channels]))
+                        link._write(bytes([ch + 100 for ch in list(self.hw_active_channels)]))
                     else:
                         link.stop_all()
                 self.hw_active_channels.clear()
@@ -10939,8 +10951,13 @@ class BackgroundGraphWindow(QDialog):
         if not (link and getattr(link, 'is_open', False)):
             return
 
-        # Check EVERY scan line of the new frame (a needle in any line of the frame must open its valve)
-        recent_slice = frame
+        # Only the NEWEST lines show where the product is now; older lines of a tall frame smear a moving needle.
+        n_lines = max(1, int(getattr(self, 'eject_lines', 2)))
+        if frame.shape[0] > 16 and not getattr(self, '_tall_frame_warned', False):
+            self._tall_frame_warned = True
+            print(f"[EJECT WARN] frame is {frame.shape[0]} lines tall: only the newest {n_lines} are checked. "
+                  f"Set roi_height <= 16 in camera_config.json (back it up first) for fast, complete reading.")
+        recent_slice = frame[-n_lines:]
         min_line = np.min(recent_slice, axis=0)
         max_line = np.max(recent_slice, axis=0)
 
@@ -10985,7 +11002,7 @@ class BackgroundGraphWindow(QDialog):
                     current_active.add(int(ch_idx + 1))
 
         newly_on = [ch for ch in current_active if ch not in self.hw_active_channels]
-        to_turn_off = [ch for ch in self.hw_active_channels if ch not in current_active]
+        to_turn_off = [ch for ch in list(self.hw_active_channels) if ch not in current_active]
 
         # ESP watchdog (ESP_BYTE mode): the board closes any valve that was not re-sent ON within 250 ms,
         # so a frozen PC / lost frames / unplugged cable can never leave a valve stuck open.
