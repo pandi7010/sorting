@@ -372,3 +372,12 @@ verified: git HEAD `e6a75eb`, clean, `git fsck` OK. Re-synced after the final su
 - standalone .exe build (not run: low disk space here).
 
 **Not started / skipped:** Phase 5 (real-time CNN) — skipped by the user, needs captured data.
+
+---
+
+## 31 Oct 2026 - CNN plan step 1: CPU timing comparison (tools/cnn_timing.py)
+
+- New read-only tool `tools/cnn_timing.py` (PyTorch vs ONNX Runtime vs OpenCV DNN, one 224x224 MobileNetV2 crop, CPU). Nothing in the sorter or the ejection path changed.
+- Result on this PC (10 threads, random weights, 100 runs): PyTorch 14.5 ms, **ONNX Runtime 2.8 ms (~5x faster)**, OpenCV DNN 8.5 ms. Recommendation: use ONNX Runtime for real-time CNN on the CPU-only machine PC; keep PyTorch for training. Machine-PC CPU will differ - re-run there.
+- Needs `onnx` + `onnxruntime` (installed into this PC's Python 3.12.10; not yet in `deploy\requirements*.txt`).
+- Next: capture with product + class selection (`dataset\<product>\<class>\`), training GUI, evaluation report, BAD threshold per recipe, ONNX export + recipe link.

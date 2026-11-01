@@ -99,17 +99,25 @@ def _patch_ejector_support():
             self._write(bytes([0]))  # Send ALL OFF initial reset
             self.text_lines.append(f"[LINK] {self.port}: ESP32 63-CH Ejector (esp.py byte protocol)")
             return "ESP_BYTE"
-        if v2:
-            deadline = time.time() + 2.0
-            while time.time() < deadline:
-                if self.identity:
-                    break
-                time.sleep(0.05)
-            self.mode = "BINARY"
-            if self.heartbeat_enabled:
-                self._start_heartbeat()
-            self.text_lines.append(f"[LINK] {self.port}: binary firmware v{self.fw_version or '2.x'}")
-            return "BINARY"
+        if v2:                                        # same binary handshake as ejector_link.EjectorLink._probe
+            for _ in range(3):
+                self._status_evt.clear()
+                self._send(_el.T_STATUS_REQ, track=False)
+                if self._status_evt.wait(0.25):
+                    self.mode = "BINARY"
+                    self._send_cmd(_el.C_STOP_ALL)
+                    self._send_cmd(_el.C_ARM)
+                    self.request_remap(timeout=1.0)
+                    if baud == _el.BINARY_BAUD:
+                        self.identify(0.4)
+                    if self.heartbeat_enabled:
+                        self._start_heartbeat()
+                    extra = "" if baud == _el.BINARY_BAUD else f" at {baud} baud (older firmware: upload v2.3 for {_el.BINARY_BAUD})"
+                    self.text_lines.append(f"[LINK] {self.port}: binary firmware v{self.fw_version}{extra}")
+                    return "BINARY"
+            self.text_lines.append(f"[LINK] {self.port}: v{v2[0]}.{v2[1]} firmware answers text but not the binary protocol")
+            self._close_port()
+            return "FAIL"
         if legacy:
             self.mode = "LEGACY"
             self._write(b"STOP\nALL_OFF\n")
@@ -3154,6 +3162,9 @@ class DefectSimulationDialog(QDialog):
         self.image_files = []
         self.current_img_idx = -1
 
+        self.btn_fire = None
+        self.btn_single = None
+
         self.init_ui()
         self.init_folder_and_images()
 
@@ -3908,6 +3919,7 @@ class DefectSimulationDialog(QDialog):
         """)
         self.btn_fire.clicked.connect(self.fire_valves_now)
         hw_lay.addWidget(self.btn_fire)
+        self.btn_single = self.btn_fire
 
         # Quick Actions Row: Sweep test & Full console
         quick_row = QHBoxLayout()
@@ -4632,7 +4644,10 @@ class DefectSimulationDialog(QDialog):
             self.lbl_active_summary.setStyleSheet("color: #ff1744; font-weight: bold; font-size: 13px;")
             self.lbl_led_bar_status.setText(f"💡 OPERATING EJECTOR LEDs (1 - 63):  [ 🔥 CH {ch_str} TRIGGERED ] ({len(sorted_channels)} / 63 Valves Active)")
             self.lbl_led_bar_status.setStyleSheet("color: #ff5252; font-size: 12px; font-weight: bold; padding-top: 4px;")
-            self.btn_single.setEnabled(True)
+            if getattr(self, 'btn_fire', None):
+                self.btn_fire.setEnabled(True)
+            elif getattr(self, 'btn_single', None):
+                self.btn_single.setEnabled(True)
         else:
             self.lbl_fired_channels.setText("Fired Channels: None")
             if algo_idx == 1:
@@ -4643,7 +4658,10 @@ class DefectSimulationDialog(QDialog):
                 self.lbl_led_bar_status.setText("💡 OPERATING EJECTOR LEDs (1 - 63):  All 63 Valves Standby (Idle)")
             self.lbl_active_summary.setStyleSheet("color: #00e676; font-weight: bold; font-size: 13px;")
             self.lbl_led_bar_status.setStyleSheet("color: #80deea; font-size: 12px; font-weight: bold; padding-top: 4px;")
-            self.btn_single.setEnabled(False)
+            if getattr(self, 'btn_fire', None):
+                self.btn_fire.setEnabled(False)
+            elif getattr(self, 'btn_single', None):
+                self.btn_single.setEnabled(False)
 
         if self.chk_autofire.isChecked() and sorted_channels:
             self.fire_valves_now()
@@ -6041,6 +6059,11 @@ class ProgramManagerDialog(QDialog):
             # Setting ONE time applies to BOTH FRONT and REAR!
             self.algo_buttons["FRONT"][algo_name].setChecked(is_checked)
             self.algo_buttons["REAR"][algo_name].setChecked(is_checked)
+        elif self.camera_mode == "SAME":
+            # When camera_mode is SAME, keep FRONT, REAR, and BOTH in sync!
+            self.algo_buttons["FRONT"][algo_name].setChecked(is_checked)
+            self.algo_buttons["REAR"][algo_name].setChecked(is_checked)
+            self.algo_buttons["BOTH"][algo_name].setChecked(is_checked)
         else:
             # Modified individually in FRONT or REAR
             f_checked = self.algo_buttons["FRONT"][algo_name].isChecked()
@@ -6059,8 +6082,22 @@ class ProgramManagerDialog(QDialog):
     def simulate_active_program(self):
         curr_idx = self.tabs.currentIndex()
         cam = "FRONT" if curr_idx in [0, 1] else "REAR"
-        cam_algos = self.program_data.get(self.selected_program, {}).get(cam, [])
-        active_algo = cam_algos[0] if cam_algos else "GRAY A"
+
+        # Check algorithms currently activated in UI buttons
+        active_in_ui = [algo for algo, btn in self.algo_buttons[cam].items() if btn.isChecked()]
+        if not active_in_ui and (self.camera_mode == "SAME" or curr_idx == 0):
+            active_in_ui = [algo for algo, btn in self.algo_buttons["BOTH"].items() if btn.isChecked()]
+
+        if not active_in_ui:
+            QMessageBox.warning(
+                self, "No Algorithm Selected",
+                f"No algorithm is currently activated for {cam} camera in '{self.selected_program}'.\n\n"
+                f"The ejectors and simulation only fire when an algorithm is turned ON.\n"
+                f"Please click at least one algorithm button (e.g. GRAY A, SIZE, or DISCOLOUR) to activate it before simulating."
+            )
+            return
+
+        active_algo = active_in_ui[0]
         cam_settings = self.algo_settings.get(cam, {}).get(active_algo, {
             "channel": "GREEN", "mode": "DARK DEFECT", "sens": "100", "scale": "16", "purity": "1"
         })
@@ -6116,10 +6153,14 @@ class ProgramManagerDialog(QDialog):
 
     def save_and_load_recipe(self):
         new_data = {"FRONT": [], "REAR": []}
-        if self.camera_mode == "SAME" or self.tabs.currentIndex() == 0:
-            active_both = [algo for algo, btn in self.algo_buttons["BOTH"].items() if btn.isChecked()]
+        curr_tab = self.tabs.currentIndex()
+        if self.camera_mode == "SAME" or curr_tab == 0:
+            source_cam = "FRONT" if curr_tab == 1 else ("REAR" if curr_tab == 2 else "BOTH")
+            active_both = [algo for algo, btn in self.algo_buttons[source_cam].items() if btn.isChecked()]
             new_data["FRONT"] = list(active_both)
             new_data["REAR"] = list(active_both)
+            for algo, btn in self.algo_buttons["BOTH"].items():
+                btn.setChecked(algo in active_both)
         else:
             new_data["FRONT"] = [algo for algo, btn in self.algo_buttons["FRONT"].items() if btn.isChecked()]
             new_data["REAR"] = [algo for algo, btn in self.algo_buttons["REAR"].items() if btn.isChecked()]
@@ -6147,6 +6188,14 @@ class ProgramManagerDialog(QDialog):
                 self.main_window.apply_scheme(self.selected_program)
             if hasattr(self.main_window, 'update_side_panel_visualization'):
                 self.main_window.update_side_panel_visualization(self.selected_program)
+
+        active_str = ", ".join(new_data["FRONT"]) if new_data["FRONT"] else "None (All Inactive - Sorter Will Not Fire)"
+        QMessageBox.information(
+            self, "Recipe Saved & Loaded",
+            f"Scheme '{self.selected_program}' saved and loaded successfully!\n\n"
+            f"Active algorithms: {active_str}\n"
+            f"Camera mode: {self.camera_mode}"
+        )
 
         self.accept()
 
@@ -6228,6 +6277,10 @@ class ProgramManagerDialog(QDialog):
                 recipes_data = RecipeManager.load_all()
                 recipes_data["schemes"] = self.program_data
                 RecipeManager.save_all(recipes_data)
+                items = self.list_widget.findItems(name, Qt.MatchExactly)
+                if items:
+                    self.list_widget.setCurrentItem(items[0])
+                    self.on_program_selected(items[0])
 
         VirtualKeyboard("", save_new, self).exec_()
 
@@ -10088,9 +10141,10 @@ class BackgroundGraphWindow(QDialog):
         self.camera_worker = self.front_worker  # Default FRONT
         self.arduino = esp32_handler
         self.latest_frame = None
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            # DirectConnection: runs in the camera thread, so no Qt event-queue backlog (always the newest frame)
-            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
+        self.local_system_running = False
+        self.hw_active_channels = set()
+        self.hw_channel_on_time = {}
+        self.led_hold_until = [0.0] * 64
 
         self.setStyleSheet("""
             QDialog { background-color: #1e272e; color: #ecf0f1; font-family: Segoe UI; }
@@ -10220,23 +10274,23 @@ class BackgroundGraphWindow(QDialog):
         header.addWidget(self.lbl_voltage)
         header.addSpacing(30)
 
-        self.btn_local_start = QPushButton("\u25b6 FIRING ACTIVE")
-        self.btn_local_start.setFixedSize(160, 40)
+        self.btn_local_start = QPushButton("\u25b6 START TEST FIRING")
+        self.btn_local_start.setFixedSize(170, 40)
         self.btn_local_start.setAutoDefault(False)
         self.btn_local_start.setStyleSheet(
-            "background: #1b5e20; color: #00e676; font-weight: bold; border: 2px solid #00e676; border-radius: 4px; font-size: 14px;")
+            "background: #333; color: #bbb; font-weight: bold; border-radius: 4px; font-size: 14px;")
         self.btn_local_start.clicked.connect(self.start_local_system)
         header.addWidget(self.btn_local_start)
 
-        self.btn_local_stop = QPushButton("\u23f9 STOP FIRING")
-        self.btn_local_stop.setFixedSize(130, 40)
+        self.btn_local_stop = QPushButton("\u23f9 FIRING STOPPED")
+        self.btn_local_stop.setFixedSize(150, 40)
         self.btn_local_stop.setAutoDefault(False)
         self.btn_local_stop.setStyleSheet(
-            "background: #444; color: #bbb; font-weight: bold; border-radius: 4px; font-size: 14px;")
+            "background: #b71c1c; color: white; font-weight: bold; border: 2px solid #ff5252; border-radius: 4px; font-size: 14px;")
         self.btn_local_stop.clicked.connect(self.stop_local_system)
         header.addWidget(self.btn_local_stop)
 
-        self.local_system_running = True
+        self.local_system_running = False
         self.led_hold_until = [0.0] * 64
         self.hw_active_channels = set()
         self.hw_channel_on_time = {}
@@ -10694,6 +10748,10 @@ class BackgroundGraphWindow(QDialog):
             except Exception as e:
                 print("Error loading master camera bounds:", e)
 
+        # Connect camera frame signal only after UI and attributes are fully constructed
+        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
+            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
+
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
             return
@@ -10701,6 +10759,11 @@ class BackgroundGraphWindow(QDialog):
 
     def closeEvent(self, event):
         self.local_system_running = False
+        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
+            try:
+                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
+            except Exception:
+                pass
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
@@ -10711,6 +10774,11 @@ class BackgroundGraphWindow(QDialog):
 
     def reject(self):
         self.local_system_running = False
+        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
+            try:
+                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
+            except Exception:
+                pass
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
@@ -10730,6 +10798,12 @@ class BackgroundGraphWindow(QDialog):
 
     def stop_local_system(self):
         self.local_system_running = False
+        self.btn_local_start.setText("\u25b6 START TEST FIRING")
+        self.btn_local_start.setStyleSheet(
+            "background: #333; color: #bbb; font-weight: bold; border-radius: 4px; font-size: 14px;")
+        self.btn_local_stop.setText("\u23f9 FIRING STOPPED")
+        self.btn_local_stop.setStyleSheet(
+            "background: #b71c1c; color: white; font-weight: bold; border: 2px solid #ff5252; border-radius: 4px; font-size: 14px;")
         if hasattr(self, 'hw_active_channels') and self.hw_active_channels:
             if self.arduino and getattr(self.arduino, 'ejector_link', None):
                 link = self.arduino.ejector_link
@@ -10962,6 +11036,11 @@ class BackgroundGraphWindow(QDialog):
 
     def close_cleanly(self):
         self.local_system_running = False
+        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
+            try:
+                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
+            except Exception:
+                pass
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
@@ -10973,7 +11052,7 @@ class BackgroundGraphWindow(QDialog):
     def update_live_frame(self, frame):
         if frame is not None:
             self.latest_frame = frame
-            if self.local_system_running:
+            if getattr(self, 'local_system_running', False):
                 # Runs in the camera thread (DirectConnection): an unhandled exception in a PyQt5 slot aborts the
                 # program, so catch it here (the ESP watchdog closes any valve left open).
                 try:
@@ -12122,28 +12201,23 @@ class MainDashboard(QMainWindow):
         g_vals_max = np.max(g, axis=0)
         r_vals_max = np.max(r, axis=0)
         
-        # Fast dynamic object masking to isolate objects from conveyor background
-        valid_b = b_vals_max[start_pixel:end_pixel]
-        valid_g = g_vals_max[start_pixel:end_pixel]
-        valid_r = r_vals_max[start_pixel:end_pixel]
-        
-        bg_b = np.median(valid_b) if len(valid_b) > 0 else 150
-        bg_g = np.median(valid_g) if len(valid_g) > 0 else 50
-        bg_r = np.median(valid_r) if len(valid_r) > 0 else 10
-        
-        diff_max_b = np.abs(b_vals_max - bg_b)
-        diff_max_g = np.abs(g_vals_max - bg_g)
-        diff_max_r = np.abs(r_vals_max - bg_r)
-        
-        diff_min_b = np.abs(b_vals_min - bg_b)
-        diff_min_g = np.abs(g_vals_min - bg_g)
-        diff_min_r = np.abs(r_vals_min - bg_r)
-        
-        obj_mask_1d = (diff_max_b > 25) | (diff_max_g > 25) | (diff_max_r > 25) | \
-                      (diff_min_b > 25) | (diff_min_g > 25) | (diff_min_r > 25)
-        
-        # FINAL DECISION ENGINE: Structured results instead of boolean OR
+        # Vectorized Channel Mapping helper: maps triggered pixels directly to channels 1..63
         results_by_channel = {ch_idx: [] for ch_idx in range(num_channels)}
+
+        def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2):
+            if start_pixel > 0: algo_trig[:start_pixel] = False
+            if end_pixel < len(algo_trig): algo_trig[end_pixel:] = False
+            trig_px = np.where(algo_trig)[0]
+            if len(trig_px) > 0 and num_channels > 0:
+                ch_w = float(end_pixel - start_pixel) / float(num_channels)
+                ch_arr = ((trig_px - start_pixel) / ch_w).astype(np.int32)
+                u_chs, counts = np.unique(ch_arr, return_counts=True)
+                for ch_i, cnt in zip(u_chs, counts):
+                    if 0 <= ch_i < num_channels and cnt >= min_px:
+                        results_by_channel[ch_i].append({
+                            "enabled": True, "detected": True, "algo": algo_nm, "class": cls_nm,
+                            "channel": ch_i + 1, "confidence": 1.0
+                        })
 
         for algo_name in active_algos:
             cfg = algo_settings.get(algo_name, {})
@@ -12172,59 +12246,45 @@ class MainDashboard(QMainWindow):
                 raw_def_mask = np.zeros(plane.shape, dtype=bool)
                 if sens > 0:
                     if mode == "DARK DEFECT":
-                        thresh_lo = 0
+                        # Calibrated background threshold from Background Tuning (default 68)
+                        t_lower = 68
                         if "camera_thresh" in self.bg_settings and source in self.bg_settings["camera_thresh"]:
-                            thresh_lo = self.bg_settings["camera_thresh"][source].get("lower", 0)
-                        
-                        eff_thresh = thresh_lo if thresh_lo > 0 else min(250, int(6 + (sens * 2.44)))
-                        
-                        # Calibrated Threshold Detection: matches Background Tuning yellow line exactly
+                            t_lower = self.bg_settings["camera_thresh"][source].get("lower", 68)
+                        elif "thresh_lower" in self.bg_settings:
+                            t_lower = self.bg_settings.get("thresh_lower", 68)
+
+                        # Dual Condition Detection:
+                        # Condition 1: Absolute threshold (pixel is darker than calibrated threshold line)
+                        eff_thresh = max(10, min(240, int(t_lower + ((sens - 50.0) * 0.4))))
                         abs_mask = (plane < eff_thresh)
-                        raw_def_mask = abs_mask
+
+                        # Condition 2: Relative drop from background (wire / thin defect detection)
+                        plane_min_1d = np.min(plane, axis=0)
+                        avg_bg = np.mean(plane_min_1d[start_pixel:end_pixel]) if end_pixel > start_pixel else np.mean(plane_min_1d)
+                        sensitivity_drop = max(8, int(45 - (sens * 0.35)))
+                        rel_mask = (plane < (avg_bg - sensitivity_drop))
+
+                        raw_def_mask = abs_mask | rel_mask
                     else:
                         # LIGHT DEFECT mode:
-                        # Background reference:
-                        plane_min_1d = np.min(plane, axis=0)
-                        avg_bg = np.median(plane_min_1d[start_pixel:end_pixel]) if end_pixel > start_pixel else np.median(plane_min_1d)
-                        
-                        # Light defect must be significantly brighter than background
-                        # High sens (e.g. 80) requires +20 above bg; low sens (e.g. 10) requires +70 above bg
-                        delta = max(15, int(75 - (sens * 0.70)))
-                        light_thresh = min(252, int(avg_bg + delta))
-                        
+                        t_upper = 221
+                        if "camera_thresh" in self.bg_settings and source in self.bg_settings["camera_thresh"]:
+                            t_upper = self.bg_settings["camera_thresh"][source].get("upper", 221)
+                        elif "thresh_upper" in self.bg_settings:
+                            t_upper = self.bg_settings.get("thresh_upper", 221)
+                        light_thresh = min(252, int(t_upper - ((sens - 50.0) * 0.4)))
                         raw_def_mask = (plane > light_thresh)
 
                 if _track_rows:
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
 
+                algo_trigger = np.any(raw_def_mask, axis=0)
                 if mode == "LIGHT DEFECT":
-                    # Scale & Purity noise filter for LIGHT DEFECT:
-                    # Sensor noise is isolated 1-2 pixels; real defects span multiple pixels.
-                    # Scale (e.g. 6-16) and Purity (e.g. 10-100) dictate required defect pixels in channel.
                     min_def_px = max(2, int((scale * purity) / 50.0))
-                    for v_idx in range(total_valves):
-                        ch_idx = v_idx % num_channels
-                        chute_idx = v_idx // num_channels
-                        chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
-                        s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                        if np.sum(raw_def_mask[:, s_idx:e_idx]) >= min_def_px:
-                            results_by_channel[ch_idx].append({
-                                "enabled": True, "detected": True, "algo": algo_name, "class": mode,
-                                "channel": ch_idx + 1, "confidence": 1.0
-                            })
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_def_px)
                 else:
-                    # DARK DEFECT: evaluate real-time recent scan slice (matches Background Tuning zero-lag response)
-                    recent_mask = raw_def_mask[-6:] if raw_def_mask.shape[0] >= 6 else raw_def_mask
-                    for v_idx in range(total_valves):
-                        ch_idx = v_idx % num_channels
-                        chute_idx = v_idx // num_channels
-                        chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
-                        s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                        if np.sum(recent_mask[:, s_idx:e_idx]) >= 3:
-                            results_by_channel[ch_idx].append({
-                                "enabled": True, "detected": True, "algo": algo_name, "class": mode,
-                                "channel": ch_idx + 1, "confidence": 1.0
-                            })
+                    min_px = max(1, int(scale / 4))
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_px)
 
 
             # --- SIZE LOGIC ---
@@ -12250,26 +12310,31 @@ class MainDashboard(QMainWindow):
                 if start_pixel > 0: algo_trigger[:start_pixel] = False
                 if end_pixel < len(algo_trigger): algo_trigger[end_pixel:] = False
 
-                for v_idx in range(total_valves):
-                    ch_idx = v_idx % num_channels
-                    chute_idx = v_idx // num_channels
-                    chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
-                    s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                    def_width = np.sum(algo_trigger[s_idx:e_idx])
-                    
-                    is_big = def_width >= min_width_big
-                    is_small = def_width > 0 and def_width <= max_width_small
-                    
-                    if "BIG" in size_mode and is_big:
-                        results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": algo_name, "class": "BIG", "channel": ch_idx + 1})
-                    elif "SMALL" in size_mode and is_small:
-                        results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": algo_name, "class": "SMALL", "channel": ch_idx + 1})
-                    elif "BOTH" in size_mode and (is_big or is_small):
-                        cls = "BIG" if is_big else "SMALL"
-                        results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": algo_name, "class": cls, "channel": ch_idx + 1})
+                trig_px = np.where(algo_trigger)[0]
+                if len(trig_px) > 0 and num_channels > 0:
+                    ch_w = float(end_pixel - start_pixel) / float(num_channels)
+                    ch_arr = ((trig_px - start_pixel) / ch_w).astype(np.int32)
+                    u_chs, counts = np.unique(ch_arr, return_counts=True)
+                    for ch_i, def_width in zip(u_chs, counts):
+                        if not (0 <= ch_i < num_channels): continue
+                        is_big = def_width >= min_width_big
+                        is_small = def_width > 0 and def_width <= max_width_small
+                        cls = None
+                        if "SHORT" in algo_name or "SMALL" in algo_name:
+                            if is_small: cls = "SMALL"
+                        elif "BIG" in algo_name:
+                            if is_big: cls = "BIG"
+                        elif "BIG" in size_mode and is_big:
+                            cls = "BIG"
+                        elif "SMALL" in size_mode and is_small:
+                            cls = "SMALL"
+                        elif "BOTH" in size_mode and (is_big or is_small):
+                            cls = "BIG" if is_big else "SMALL"
+                        if cls:
+                            results_by_channel[ch_i].append({"enabled": True, "detected": True, "algo": algo_name, "class": cls, "channel": ch_i + 1})
 
             # --- HSV & DISCOLOUR LOGIC ---
-            elif "HSV" in algo_name or "DISCOLOUR" in algo_name:
+            elif "HSV" in algo_name or "DISCOLOUR" in algo_name or "CHROME" in algo_name:
                 try: x1, y1 = int(cfg.get("x1", 50)), int(cfg.get("y1", 50))
                 except: x1, y1 = 50, 50
                 try: x2, y2 = int(cfg.get("x2", 200)), int(cfg.get("y2", 200))
@@ -12312,32 +12377,16 @@ class MainDashboard(QMainWindow):
                 raw_def_mask = (cv2.inRange(frame_hsv, l_hsv, u_hsv) > 0)
                 
                 if hsv_mode == "SORT IN":
-                    raw_def_mask = (~raw_def_mask) & obj_mask_1d
-                else:
-                    raw_def_mask = raw_def_mask & obj_mask_1d
+                    raw_def_mask = ~raw_def_mask
 
                 if _track_rows:
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
 
-
-                if scale > 0:
-                    # LINE SCAN: Project to 1D first, same as GRAY
-                    algo_trigger = np.any(raw_def_mask, axis=0)
-                else:
-                    algo_trigger = np.any(raw_def_mask, axis=0)
-                    
-                if start_pixel > 0: algo_trigger[:start_pixel] = False
-                if end_pixel < len(algo_trigger): algo_trigger[end_pixel:] = False
-
-                for v_idx in range(total_valves):
-                    ch_idx = v_idx % num_channels
-                    chute_idx = v_idx // num_channels
-                    chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
-                    s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                    if np.any(algo_trigger[s_idx:e_idx]):
-                        results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": algo_name, "class": hsv_mode, "channel": ch_idx + 1})
+                algo_trigger = np.any(raw_def_mask, axis=0)
+                min_px = max(1, int(scale / 4))
+                _map_to_channels(algo_trigger, algo_name, hsv_mode, min_px=min_px)
             # --- DEEP LEARNING LOGIC (YOLO / CNN) ---
-            elif "DEEP LEARNING" in algo_name or "YOLO" in algo_name:
+            elif "DEEP LEARNING" in algo_name or "YOLO" in algo_name or "AI" in algo_name:
                 if getattr(self, '_dl_buffer', None) is None:
                     self._dl_buffer = []
                 
@@ -12408,8 +12457,6 @@ class MainDashboard(QMainWindow):
                 if "RED" in wave_mode or "ALL" in wave_mode: 
                     algo_trigger |= (r_vals_min < thresh_lower) | (r_vals_max > thresh_upper)
                 
-                algo_trigger = algo_trigger & obj_mask_1d
-
                 if _track_rows:
                     _m2 = np.zeros(b.shape, dtype=bool)
                     if "BLUE" in wave_mode or "ALL" in wave_mode:
@@ -12418,19 +12465,9 @@ class MainDashboard(QMainWindow):
                         _m2 |= (g < thresh_lower) | (g > thresh_upper)
                     if "RED" in wave_mode or "ALL" in wave_mode:
                         _m2 |= (r < thresh_lower) | (r > thresh_upper)
-                    _m2 &= obj_mask_1d
                     _row_mask = _m2 if _row_mask is None else (_row_mask | _m2)
 
-                if start_pixel > 0: algo_trigger[:start_pixel] = False
-                if end_pixel < len(algo_trigger): algo_trigger[end_pixel:] = False
-
-                for v_idx in range(total_valves):
-                    ch_idx = v_idx % num_channels
-                    chute_idx = v_idx // num_channels
-                    chute_offset = start_pixel + (chute_idx * (pixels_per_channel * num_channels))
-                    s_idx, e_idx = _bounds(v_idx, ch_idx, chute_offset)
-                    if np.sum(algo_trigger[s_idx:e_idx]) >= 2:
-                        results_by_channel[ch_idx].append({"enabled": True, "detected": True, "algo": "FALLBACK", "class": "DEFECT", "channel": ch_idx + 1})
+                _map_to_channels(algo_trigger, "FALLBACK", "DEFECT", min_px=2)
 
 
         # Evaluate final decision for this source
@@ -12588,37 +12625,48 @@ class MainDashboard(QMainWindow):
             if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
                 self.operating_led_bar.set_active_channels(sorted(current_active))
 
-            # Instantaneous Zero-Lag Hardware Ejection (Stateful Direct ESP32 Byte Protocol):
-            # Opens instant microseconds when needle touches, stays solidly OPEN (no chattering!),
-            # and snaps OFF the exact microsecond the needle leaves!
-            if not hasattr(self, '_live_hw_active'):
-                self._live_hw_active = set()
-
+            # REAL-TIME HARDWARE EJECTOR CONTROL (matches BackgroundGraphWindow with zero lag)
             link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
             if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
+                if not hasattr(self, '_live_hw_active'):
+                    self._live_hw_active = set()
+
                 newly_on = [ch for ch in current_active if ch not in self._live_hw_active]
-                to_turn_off = [ch for ch in self._live_hw_active if ch not in current_active]
-                
-                out_bytes = []
-                if to_turn_off:
-                    for ch in to_turn_off:
-                        self._live_hw_active.discard(ch)
-                        out_bytes.append(ch + 100)
+                to_turn_off = [ch for ch in list(self._live_hw_active) if ch not in current_active]
+
+                # ESP watchdog: keeps board active, refreshed every 100ms for held channels
+                now_wd = time.perf_counter()
+                if now_wd - getattr(self, '_wd_armed_t', 0.0) >= 5.0:
+                    link._write(b'W')
+                    self._wd_armed_t = now_wd
+                if newly_on:
+                    self._wd_refresh_t = now_wd
+                if self._live_hw_active and now_wd - getattr(self, '_wd_refresh_t', 0.0) >= 0.1:
+                    held = [ch for ch in self._live_hw_active if ch not in to_turn_off and ch not in newly_on]
+                    if held:
+                        link._write(bytes(held))
+                    self._wd_refresh_t = now_wd
+
                 if newly_on:
                     for ch in newly_on:
                         self._live_hw_active.add(ch)
-                        out_bytes.append(ch)
-                if out_bytes:
-                    try:
-                        link._write(bytes(out_bytes))
-                    except Exception as e:
-                        print("Direct byte eject error:", e)
+                    link._write(bytes(newly_on))
+
+                if to_turn_off:
+                    for ch in to_turn_off:
+                        self._live_hw_active.discard(ch)
+                    link._write(bytes([ch + 100 for ch in to_turn_off]))
             else:
-                if frame_channels:
+                # Fallback for non-ESP_BYTE modes (e.g. BINARY firmware or line sync)
+                if getattr(self, 'line_sync', None) and self.line_sync.active():
+                    meta = getattr(self, '_frame_meta', {}).get(source)
+                    if self.line_sync.fire_decision(source, dec, meta):
+                        return
+
+                if frame_channels and hasattr(self, 'eject_scheduler') and self.eject_scheduler:
                     meta = getattr(self, '_frame_meta', {}).get(source)
                     delay_ms, pulse_ms = self.get_ejector_config()
-                    if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
-                        self.eject_scheduler.schedule_fire(frame_channels, delay_ms, pulse_ms, meta=meta)
+                    self.eject_scheduler.schedule_fire(frame_channels, delay_ms, float(pulse_ms), meta=meta)
 
 
 
@@ -12655,6 +12703,10 @@ class MainDashboard(QMainWindow):
         self.system_running = True
         print("[START] Sorting sequence initiated.")
         self._channel_active_frames = {"FRONT": {}, "REAR": {}}
+        self._cam_active_channels = {"FRONT": set(), "REAR": set()}
+        self._live_hw_active = set()
+        self._wd_armed_t = 0.0
+        self._wd_refresh_t = 0.0
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()
@@ -13895,14 +13947,27 @@ class MainDashboard(QMainWindow):
 
     def open_program_manager(self):
         recipes_data = RecipeManager.load_all()
-        dlg = ProgramManagerDialog(recipes_data.get("schemes", {}), self.current_program, self.current_user, self)
-        if dlg.exec_() == QDialog.Accepted:
-            selected = dlg.selected_program
-            recipes_data["schemes"] = dlg.program_data
-            recipes_data["active_scheme"] = selected
-            RecipeManager.save_all(recipes_data)
-            self.program_data = recipes_data["schemes"]
-            self.apply_scheme(selected)
+        was_running = bool(getattr(self, 'system_running', False))
+        if was_running:
+            self.system_running = False
+            if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
+                with self.eject_scheduler.lock:
+                    self.eject_scheduler.queue.clear()
+            if hasattr(self, 'esp32') and self.esp32:
+                self.esp32.stop_all_ejectors()
+
+        try:
+            dlg = ProgramManagerDialog(recipes_data.get("schemes", {}), self.current_program, self.current_user, self)
+            if dlg.exec_() == QDialog.Accepted:
+                selected = dlg.selected_program
+                recipes_data["schemes"] = dlg.program_data
+                recipes_data["active_scheme"] = selected
+                RecipeManager.save_all(recipes_data)
+                self.program_data = recipes_data["schemes"]
+                self.apply_scheme(selected)
+        finally:
+            if was_running:
+                self.system_running = True
 
     def update_side_panel_visualization(self, program_name):
         # 1. டேட்டாவை எடுக்கிறோம்

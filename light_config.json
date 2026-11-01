@@ -1,11 +1,11 @@
 {
     "WHITE FRONT TOP": {
-        "enabled": false,
-        "lux": 500
+        "enabled": true,
+        "lux": 550
     },
     "WHITE FRONT BOTTOM": {
-        "enabled": false,
-        "lux": 500
+        "enabled": true,
+        "lux": 550
     },
     "WHITE BACK TOP": {
         "enabled": true,

@@ -1,503 +1,518 @@
 {
-  "active_scheme": "W320 WHOLE - GRADE A",
-  "schemes": {
-    "RICE": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": true,
-          "lux": 550
+    "active_scheme": "RICE",
+    "schemes": {
+        "RICE": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": true,
+                    "lux": 550
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": true,
+                    "lux": 550
+                },
+                "WHITE BACK TOP": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "RED FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": true,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0
+            },
+            "feeder_speed": 50,
+            "algorithms": {
+                "FRONT": [
+                    "SIZE: BIG",
+                    "HSV COLOR"
+                ],
+                "REAR": [
+                    "SIZE: BIG",
+                    "HSV COLOR"
+                ]
+            },
+            "thresholds": {
+                "HSV": 85,
+                "CHROME": 75,
+                "SIZE": 90,
+                "AI_PURITY": 50,
+                "GRAY_CONTRAST": 50
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 95
+            },
+            "dataset_dir": "dataset_capture/RICE",
+            "camera_mode": "SAME",
+            "algo_settings": {
+                "FRONT": {},
+                "REAR": {}
+            }
         },
-        "WHITE FRONT BOTTOM": {
-          "enabled": true,
-          "lux": 550
+        "DHALL": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": true,
+                    "lux": 450
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": true,
+                    "lux": 450
+                },
+                "WHITE BACK TOP": {
+                    "enabled": true,
+                    "lux": 300
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": true,
+                    "lux": 300
+                },
+                "RED FRONT": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": false,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0
+            },
+            "feeder_speed": 35,
+            "algorithms": {
+                "FRONT": [
+                    "CHROME: RED>GREEN",
+                    "GRAY A (Contrast)"
+                ],
+                "REAR": [
+                    "CHROME: RED>GREEN"
+                ]
+            },
+            "thresholds": {
+                "HSV": 80,
+                "CHROME": 85,
+                "SIZE": 80,
+                "AI_PURITY": 45,
+                "GRAY_CONTRAST": 60
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 90
+            },
+            "dataset_dir": "dataset_capture/DHALL"
         },
-        "WHITE BACK TOP": {
-          "enabled": true,
-          "lux": 500
+        "PLASTICS": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": true,
+                    "lux": 600
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": false,
+                    "lux": 600
+                },
+                "WHITE BACK TOP": {
+                    "enabled": false,
+                    "lux": 600
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": true,
+                    "lux": 600
+                },
+                "RED FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": true,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0
+            },
+            "feeder_speed": 60,
+            "algorithms": {
+                "FRONT": [
+                    "GRAY A",
+                    "GRAY B",
+                    "SIZE: BIG",
+                    "SIZE: SHORT",
+                    "DISCOLOUR A",
+                    "DISCOLOUR B",
+                    "HSV COLOR",
+                    "AI DETECTION"
+                ],
+                "REAR": [
+                    "GRAY A",
+                    "GRAY B",
+                    "SIZE: BIG",
+                    "SIZE: SHORT",
+                    "DISCOLOUR A",
+                    "DISCOLOUR B",
+                    "HSV COLOR",
+                    "AI DETECTION"
+                ]
+            },
+            "thresholds": {
+                "HSV": 80,
+                "CHROME": 70,
+                "SIZE": 85,
+                "AI_PURITY": 50,
+                "GRAY_CONTRAST": 50
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 85
+            },
+            "dataset_dir": "dataset_capture/PLASTICS",
+            "camera_mode": "SAME",
+            "algo_settings": {
+                "FRONT": {
+                    "GRAY A": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "10",
+                        "purity": "20"
+                    }
+                },
+                "REAR": {
+                    "GRAY A": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "10",
+                        "purity": "20"
+                    }
+                }
+            }
         },
-        "WHITE BACK BOTTOM": {
-          "enabled": true,
-          "lux": 500
+        "GOOD": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE BACK TOP": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "RED FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": false,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0
+            },
+            "feeder_speed": 50,
+            "algorithms": {
+                "FRONT": [
+                    "SIZE: BIG"
+                ],
+                "REAR": [
+                    "SIZE: BIG"
+                ]
+            },
+            "thresholds": {
+                "HSV": 85,
+                "CHROME": 75,
+                "SIZE": 90,
+                "AI_PURITY": 50,
+                "GRAY_CONTRAST": 50
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 90
+            },
+            "dataset_dir": "dataset_capture/GOOD"
         },
-        "RED FRONT": {
-          "enabled": false,
-          "lux": 500
+        "DATASET COLLECTION": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE BACK TOP": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "RED FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": false,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0
+            },
+            "feeder_speed": 30,
+            "algorithms": {
+                "FRONT": [
+                    "IMAGE CAPTURE A",
+                    "SIZE: BIG"
+                ],
+                "REAR": [
+                    "IMAGE CAPTURE A"
+                ]
+            },
+            "thresholds": {
+                "HSV": 85,
+                "CHROME": 75,
+                "SIZE": 90,
+                "AI_PURITY": 50,
+                "GRAY_CONTRAST": 50
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 90
+            },
+            "dataset_dir": "dataset_capture/DATASET_COLLECTION"
         },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": true,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": true,
-          "lux": 500
+        "W320 WHOLE - GRADE A": {
+            "lighting": {
+                "WHITE FRONT TOP": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "WHITE FRONT BOTTOM": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "WHITE BACK TOP": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "WHITE BACK BOTTOM": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "RED FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN FRONT": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE FRONT": {
+                    "enabled": true,
+                    "lux": 500
+                },
+                "RED BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "GREEN BACK": {
+                    "enabled": false,
+                    "lux": 500
+                },
+                "BLUE BACK": {
+                    "enabled": true,
+                    "lux": 500
+                }
+            },
+            "ejector": {
+                "pulse": 10.0,
+                "delay": 2.0,
+                "gap": 5.0,
+                "count": 1
+            },
+            "feeder_speed": 50,
+            "algorithms": {
+                "FRONT": [
+                    "GRAY A"
+                ],
+                "REAR": [
+                    "GRAY A"
+                ]
+            },
+            "thresholds": {
+                "HSV": 85,
+                "CHROME": 75,
+                "SIZE": 90,
+                "AI_PURITY": 50,
+                "GRAY_CONTRAST": 50
+            },
+            "ai_model": {
+                "model_path": "No model uploaded (using default).",
+                "enabled": false,
+                "confidence": 95
+            },
+            "dataset_dir": "dataset_capture/W320_WHOLE",
+            "algo_settings": {
+                "FRONT": {
+                    "GRAY A": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "10",
+                        "purity": "5"
+                    },
+                    "GRAY B": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "16",
+                        "purity": "1"
+                    },
+                    "DISCOLOUR A": {
+                        "combo": "RED > GREEN",
+                        "sens": "75",
+                        "scale": "16",
+                        "purity": "2"
+                    }
+                },
+                "REAR": {
+                    "GRAY A": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "10",
+                        "purity": "5"
+                    },
+                    "GRAY B": {
+                        "channel": "BLUE",
+                        "mode": "DARK DEFECT",
+                        "sens": "100",
+                        "scale": "16",
+                        "purity": "1"
+                    },
+                    "DISCOLOUR A": {
+                        "combo": "RED > GREEN",
+                        "sens": "75",
+                        "scale": "16",
+                        "purity": "2"
+                    }
+                }
+            },
+            "camera_mode": "SAME"
         }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0
-      },
-      "feeder_speed": 50,
-      "algorithms": {
-        "FRONT": [
-          "SIZE: BIG",
-          "HSV COLOR"
-        ],
-        "REAR": [
-          "HSV COLOR"
-        ]
-      },
-      "thresholds": {
-        "HSV": 85,
-        "CHROME": 75,
-        "SIZE": 90,
-        "AI_PURITY": 50,
-        "GRAY_CONTRAST": 50
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 95
-      },
-      "dataset_dir": "dataset_capture/RICE",
-      "camera_mode": "INDIVIDUAL",
-      "algo_settings": {
-        "FRONT": {},
-        "REAR": {}
-      }
-    },
-    "DHALL": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": true,
-          "lux": 450
-        },
-        "WHITE FRONT BOTTOM": {
-          "enabled": true,
-          "lux": 450
-        },
-        "WHITE BACK TOP": {
-          "enabled": true,
-          "lux": 300
-        },
-        "WHITE BACK BOTTOM": {
-          "enabled": true,
-          "lux": 300
-        },
-        "RED FRONT": {
-          "enabled": true,
-          "lux": 500
-        },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": false,
-          "lux": 500
-        }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0
-      },
-      "feeder_speed": 35,
-      "algorithms": {
-        "FRONT": [
-          "CHROME: RED>GREEN",
-          "GRAY A (Contrast)"
-        ],
-        "REAR": [
-          "CHROME: RED>GREEN"
-        ]
-      },
-      "thresholds": {
-        "HSV": 80,
-        "CHROME": 85,
-        "SIZE": 80,
-        "AI_PURITY": 45,
-        "GRAY_CONTRAST": 60
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 90
-      },
-      "dataset_dir": "dataset_capture/DHALL"
-    },
-    "PLASTICS": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": true,
-          "lux": 600
-        },
-        "WHITE FRONT BOTTOM": {
-          "enabled": false,
-          "lux": 600
-        },
-        "WHITE BACK TOP": {
-          "enabled": false,
-          "lux": 600
-        },
-        "WHITE BACK BOTTOM": {
-          "enabled": true,
-          "lux": 600
-        },
-        "RED FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": true,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": true,
-          "lux": 500
-        }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0
-      },
-      "feeder_speed": 60,
-      "algorithms": {
-        "FRONT": [
-          "GRAY A"
-        ],
-        "REAR": [
-          "GRAY A"
-        ]
-      },
-      "thresholds": {
-        "HSV": 80,
-        "CHROME": 70,
-        "SIZE": 85,
-        "AI_PURITY": 50,
-        "GRAY_CONTRAST": 50
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 85
-      },
-      "dataset_dir": "dataset_capture/PLASTICS",
-      "camera_mode": "SAME",
-      "algo_settings": {
-        "FRONT": {
-          "GRAY A": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "100",
-            "scale": "10",
-            "purity": "20"
-          }
-        },
-        "REAR": {
-          "GRAY A": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "100",
-            "scale": "10",
-            "purity": "20"
-          }
-        }
-      }
-    },
-    "GOOD": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": true,
-          "lux": 500
-        },
-        "WHITE FRONT BOTTOM": {
-          "enabled": true,
-          "lux": 500
-        },
-        "WHITE BACK TOP": {
-          "enabled": false,
-          "lux": 500
-        },
-        "WHITE BACK BOTTOM": {
-          "enabled": false,
-          "lux": 500
-        },
-        "RED FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": false,
-          "lux": 500
-        }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0
-      },
-      "feeder_speed": 50,
-      "algorithms": {
-        "FRONT": [
-          "SIZE: BIG"
-        ],
-        "REAR": [
-          "SIZE: BIG"
-        ]
-      },
-      "thresholds": {
-        "HSV": 85,
-        "CHROME": 75,
-        "SIZE": 90,
-        "AI_PURITY": 50,
-        "GRAY_CONTRAST": 50
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 90
-      },
-      "dataset_dir": "dataset_capture/GOOD"
-    },
-    "DATASET COLLECTION": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": true,
-          "lux": 500
-        },
-        "WHITE FRONT BOTTOM": {
-          "enabled": true,
-          "lux": 500
-        },
-        "WHITE BACK TOP": {
-          "enabled": false,
-          "lux": 500
-        },
-        "WHITE BACK BOTTOM": {
-          "enabled": false,
-          "lux": 500
-        },
-        "RED FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": false,
-          "lux": 500
-        }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0
-      },
-      "feeder_speed": 30,
-      "algorithms": {
-        "FRONT": [
-          "IMAGE CAPTURE A",
-          "SIZE: BIG"
-        ],
-        "REAR": [
-          "IMAGE CAPTURE A"
-        ]
-      },
-      "thresholds": {
-        "HSV": 85,
-        "CHROME": 75,
-        "SIZE": 90,
-        "AI_PURITY": 50,
-        "GRAY_CONTRAST": 50
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 90
-      },
-      "dataset_dir": "dataset_capture/DATASET_COLLECTION"
-    },
-    "W320 WHOLE - GRADE A": {
-      "lighting": {
-        "WHITE FRONT TOP": {
-          "enabled": false,
-          "lux": 500
-        },
-        "WHITE FRONT BOTTOM": {
-          "enabled": false,
-          "lux": 500
-        },
-        "WHITE BACK TOP": {
-          "enabled": true,
-          "lux": 500
-        },
-        "WHITE BACK BOTTOM": {
-          "enabled": true,
-          "lux": 500
-        },
-        "RED FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN FRONT": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE FRONT": {
-          "enabled": true,
-          "lux": 500
-        },
-        "RED BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "GREEN BACK": {
-          "enabled": false,
-          "lux": 500
-        },
-        "BLUE BACK": {
-          "enabled": true,
-          "lux": 500
-        }
-      },
-      "ejector": {
-        "pulse": 10.0,
-        "delay": 2.0,
-        "gap": 5.0,
-        "count": 1
-      },
-      "feeder_speed": 50,
-      "algorithms": {
-        "FRONT": [
-          "GRAY A"
-        ],
-        "REAR": [
-          "GRAY A"
-        ]
-      },
-      "thresholds": {
-        "HSV": 85,
-        "CHROME": 75,
-        "SIZE": 90,
-        "AI_PURITY": 50,
-        "GRAY_CONTRAST": 50
-      },
-      "ai_model": {
-        "model_path": "No model uploaded (using default).",
-        "enabled": false,
-        "confidence": 95
-      },
-      "dataset_dir": "dataset_capture/W320_WHOLE",
-      "algo_settings": {
-        "FRONT": {
-          "GRAY A": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "5",
-            "scale": "10",
-            "purity": "50"
-          },
-          "GRAY B": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "100",
-            "scale": "16",
-            "purity": "1"
-          },
-          "DISCOLOUR A": {
-            "combo": "RED > GREEN",
-            "sens": "75",
-            "scale": "16",
-            "purity": "2"
-          }
-        },
-        "REAR": {
-          "GRAY A": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "5",
-            "scale": "10",
-            "purity": "50"
-          },
-          "GRAY B": {
-            "channel": "BLUE",
-            "mode": "DARK DEFECT",
-            "sens": "100",
-            "scale": "16",
-            "purity": "1"
-          },
-          "DISCOLOUR A": {
-            "combo": "RED > GREEN",
-            "sens": "75",
-            "scale": "16",
-            "purity": "2"
-          }
-        }
-      },
-      "camera_mode": "SAME"
     }
-  }
 }
