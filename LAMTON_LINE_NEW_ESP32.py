@@ -43,6 +43,7 @@ from relay import RelayController
 from ejector_link import EjectorLink
 import port_detect                              # finds the ejector / relay / feeder on ANY COM port by their replies
 import features                                  # Phase 2+: ON/OFF switches (all OFF by default)
+import capture_timing                            # capture-timed ejection (switch capture_timed_eject_enabled, OFF)
 from timing_log import get_logger as _get_timing_logger
 TIMING = _get_timing_logger()                    # Phase 2 timing logs (disabled unless switched on)
 
@@ -12186,8 +12187,16 @@ class MainDashboard(QMainWindow):
         # With the default settings _bounds() returns exactly the old pixel ranges.
         import channel_map
         _bounds = channel_map.make_bounds_fn(source, start_pixel, pixels_per_channel, num_channels, frame_width)
-        _track_rows = features.enabled("row_tracking_enabled") or features.enabled("line_sync_enabled")
+        _track_rows = (features.enabled("row_tracking_enabled") or features.enabled("line_sync_enabled")
+                       or features.enabled("capture_timed_eject_enabled"))
         _row_mask = None     # 2D bool: pixels that triggered any algorithm (only when _track_rows)
+        # 2 Nov 2026 (switch detection_fixes_enabled, OFF = old behaviour): minimum defect AREA per channel,
+        # GRAY uses the chosen colour plane, GRAY background = median, SIZE threshold fallback
+        _det_fix = features.enabled("detection_fixes_enabled")
+        try:
+            _min_area = max(1, int(features.value("min_defect_area_px", 4)))
+        except Exception:
+            _min_area = 4
 
         b = frame[:, :, 0].astype(float)
         g = frame[:, :, 1].astype(float)
@@ -12204,7 +12213,7 @@ class MainDashboard(QMainWindow):
         # Vectorized Channel Mapping helper: maps triggered pixels directly to channels 1..63
         results_by_channel = {ch_idx: [] for ch_idx in range(num_channels)}
 
-        def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2):
+        def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2, area_mask=None):
             if start_pixel > 0: algo_trig[:start_pixel] = False
             if end_pixel < len(algo_trig): algo_trig[end_pixel:] = False
             trig_px = np.where(algo_trig)[0]
@@ -12212,7 +12221,14 @@ class MainDashboard(QMainWindow):
                 ch_w = float(end_pixel - start_pixel) / float(num_channels)
                 ch_arr = ((trig_px - start_pixel) / ch_w).astype(np.int32)
                 u_chs, counts = np.unique(ch_arr, return_counts=True)
+                _areas = None
+                if _det_fix and area_mask is not None:
+                    # defect pixels (all rows) per channel: a dust / hot pixel no longer fires a valve
+                    _col_cnt = area_mask[:, trig_px].sum(axis=0)
+                    _areas = dict(zip(u_chs.tolist(), np.bincount(np.searchsorted(u_chs, ch_arr), weights=_col_cnt).tolist()))
                 for ch_i, cnt in zip(u_chs, counts):
+                    if _areas is not None and _areas.get(int(ch_i), 0) < _min_area:
+                        continue
                     if 0 <= ch_i < num_channels and cnt >= min_px:
                         results_by_channel[ch_i].append({
                             "enabled": True, "detected": True, "algo": algo_nm, "class": cls_nm,
@@ -12240,8 +12256,8 @@ class MainDashboard(QMainWindow):
                 else:
                     plane = g
 
-                if np.mean(r_vals_max) < 40 and np.mean(b_vals_max) > 80:
-                    plane = b
+                if not _det_fix and np.mean(r_vals_max) < 40 and np.mean(b_vals_max) > 80:
+                    plane = b      # old behaviour: silently overrides the chosen colour
 
                 raw_def_mask = np.zeros(plane.shape, dtype=bool)
                 if sens > 0:
@@ -12261,6 +12277,11 @@ class MainDashboard(QMainWindow):
                         # Condition 2: Relative drop from background (wire / thin defect detection)
                         plane_min_1d = np.min(plane, axis=0)
                         avg_bg = np.mean(plane_min_1d[start_pixel:end_pixel]) if end_pixel > start_pixel else np.mean(plane_min_1d)
+                        if _det_fix:
+                            # background = median of the inspected area (product is a small part of the view);
+                            # the old value (mean of each column's darkest pixel) drops when product is present
+                            _sl = plane[::2, start_pixel:end_pixel:4] if end_pixel > start_pixel else plane[::2, ::4]
+                            avg_bg = float(np.median(_sl))
                         sensitivity_drop = max(8, int(45 - (sens * 0.35)))
                         rel_mask = (plane < (avg_bg - sensitivity_drop))
 
@@ -12281,10 +12302,10 @@ class MainDashboard(QMainWindow):
                 algo_trigger = np.any(raw_def_mask, axis=0)
                 if mode == "LIGHT DEFECT":
                     min_def_px = max(2, int((scale * purity) / 50.0))
-                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_def_px)
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_def_px, area_mask=raw_def_mask)
                 else:
                     min_px = max(1, int(scale / 4))
-                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_px)
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_px, area_mask=raw_def_mask)
 
 
             # --- SIZE LOGIC ---
@@ -12302,6 +12323,9 @@ class MainDashboard(QMainWindow):
                 thresh_val = 0
                 if "camera_thresh" in self.bg_settings and source in self.bg_settings["camera_thresh"]:
                     thresh_val = self.bg_settings["camera_thresh"][source]["lower"]
+                elif _det_fix:
+                    # old code: no camera threshold -> 0 -> "gray < 0" is never true -> SIZE never fired
+                    thresh_val = self.bg_settings.get("thresh_lower", 68)
                 
                 algo_trigger = (gray < thresh_val)
                 if _track_rows:
@@ -12384,7 +12408,7 @@ class MainDashboard(QMainWindow):
 
                 algo_trigger = np.any(raw_def_mask, axis=0)
                 min_px = max(1, int(scale / 4))
-                _map_to_channels(algo_trigger, algo_name, hsv_mode, min_px=min_px)
+                _map_to_channels(algo_trigger, algo_name, hsv_mode, min_px=min_px, area_mask=raw_def_mask)
             # --- DEEP LEARNING LOGIC (YOLO / CNN) ---
             elif "DEEP LEARNING" in algo_name or "YOLO" in algo_name or "AI" in algo_name:
                 if getattr(self, '_dl_buffer', None) is None:
@@ -12526,6 +12550,40 @@ class MainDashboard(QMainWindow):
 
         return final_decision
 
+    def _capture_timed_fire(self, link, source, dec, frame_channels):
+        """Switch capture_timed_eject_enabled (features_config.json). ESP_BYTE firmware (esp/esp.ino).
+        Uses the recipe DELAY (camera line -> nozzle, ms) and PULSE (extra blast, ms). See capture_timing.py."""
+        sched = getattr(self, '_timed_valves', None)
+        if sched is None or not sched.is_alive() or getattr(sched, '_link', None) is not link:
+            if sched is not None:
+                sched.stop()
+            sched = capture_timing.TimedValveScheduler(link._write)
+            sched._link = link
+            sched.start()
+            self._timed_valves = sched
+            self._capture_clock = capture_timing.CaptureClock(sched.cfg)
+            print("[TIMED EJECT] capture-timed ejection ACTIVE (recipe DELAY = camera line -> nozzle)")
+        if getattr(self.esp32, 'ejector_test_active', False):
+            return
+        now = time.perf_counter()
+        if now - getattr(self, '_wd_armed_t', 0.0) >= 5.0:
+            link._write(b'W')                    # esp.ino safety watchdog: a channel never stays ON > 250 ms
+            self._wd_armed_t = now
+        meta = getattr(self, '_frame_meta', {}).get(source) or {}
+        frame_end, line_period = self._capture_clock.update(source, meta)   # every frame (keeps the clock fresh)
+        if not frame_channels:
+            return
+        if now - getattr(self, '_timed_cfg_t', 0.0) >= 0.5:           # recipe file read at most twice a second
+            self._timed_delay_pulse = self.get_ejector_config()
+            self._timed_cfg_t = now
+        delay_ms, pulse_ms = self._timed_delay_pulse
+        if source == "REAR":
+            delay_ms += float(sched.cfg.get("rear_extra_delay_ms", 0.0))
+        rows_used = meta.get("rows_used") or meta.get("height") or 1
+        blasts = capture_timing.plan_blasts(frame_channels, (dec or {}).get("row_extents"), rows_used,
+                                            frame_end, line_period, delay_ms, pulse_ms, sched.cfg)
+        sched.add(blasts)
+
     def evaluate_fusion_and_fire(self, source=None):
         f_dec = getattr(self, '_last_front_decision', None)
         r_dec = getattr(self, '_last_rear_decision', None)
@@ -12628,6 +12686,10 @@ class MainDashboard(QMainWindow):
             # REAL-TIME HARDWARE EJECTOR CONTROL (matches BackgroundGraphWindow with zero lag)
             link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
             if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
+                if features.enabled("capture_timed_eject_enabled"):
+                    # 2 Nov 2026: valve ON at (defect line scan time + recipe DELAY), blast = object + PULSE
+                    self._capture_timed_fire(link, source, dec, frame_channels)
+                    return
                 if not hasattr(self, '_live_hw_active'):
                     self._live_hw_active = set()
 
@@ -12707,6 +12769,10 @@ class MainDashboard(QMainWindow):
         self._live_hw_active = set()
         self._wd_armed_t = 0.0
         self._wd_refresh_t = 0.0
+        if getattr(self, '_timed_valves', None):
+            self._timed_valves.clear()
+        if getattr(self, '_capture_clock', None):
+            self._capture_clock.reset()
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()
@@ -12854,6 +12920,11 @@ class MainDashboard(QMainWindow):
     def on_stop_system(self):
         self.system_running = False
         self.auto_clean_timer.stop()
+        if getattr(self, '_timed_valves', None):
+            try:
+                self._timed_valves.clear()       # queued blasts dropped, valves that are ON switched OFF
+            except Exception:
+                pass
         if hasattr(self, '_live_hw_active') and self._live_hw_active:
             link = getattr(self.esp32, 'ejector_link', None) if hasattr(self, 'esp32') and self.esp32 else None
             if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":

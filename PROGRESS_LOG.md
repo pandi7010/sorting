@@ -2,6 +2,40 @@
 
 ---
 
+## 2 Nov 2026 — code review + capture-timed ejection for the ESP_BYTE firmware (**SIMULATION ONLY: NOT HARDWARE-TESTED**)
+
+### Facts found today (keep)
+- **Ejector ESP32 runs `esp/esp.ino`** (byte protocol, 115200): DATA GPIO13, CLOCK GPIO14, LATCH GPIO12, /OE to GND. README lists DATA/CLOCK the other way round (README is wrong). Watchdog only after the PC sends `W` (250 ms auto-off per channel).
+- **Camera probe (machine PC, `D:\lambton-vision\sorting`)**: both MV-GELM44C, **8,842 lines/s** (113 µs/line, limited by 100 µs exposure), height 512 at power-up (the sorter sets 64 at start; not stored in the camera), trigger modes Continuous/Software/FrameTrig/**LineTrig**/CondLineTrig, 2 RS422 encoder inputs, 1 opto trigger input, strobe output. Frame header timestamp unit 0.1 ms.
+- At 3.5 m/s: 1 line = 0.4 mm, 64-line frame = 7.2 ms = 25 mm. Camera → valve ≈ 17–26 ms ≈ 60–90 mm, so **the 35–40 mm nozzles cannot be hit on time**.
+- **The ESP_BYTE live path (commit 394953a, 1 Nov) ignores the recipe DELAY and PULSE**: valve ON when a frame shows the defect, OFF when the next one doesn't. Simulation: ON moved −4 … −17 ms run to run for the same defect.
+- Other review findings (NOT changed, need approval): delay in EjectScheduler counted from end of processing, not capture; 1-pixel noise filter (`min_px = scale/4`); GRAY silently switches to the blue plane; GRAY background = column minimum; HSV hue wrap + SORT IN inverts the background; SIZE `thresh_val = 0` never fires; YOLO stacks row 5 of 64 frames; processing runs in the camera grab thread (backlog when slow); camera_config FRONT/REAR serials differ from CLAUDE.md (lens test pending); **licence lock is OFF on every PC** (`DeveloperMode.is_active()` returns True, `uuid_match = cam_match = True` in `__main__`); `ALLOWED_UUID` is a generic OEM UUID.
+- Pre-existing, unrelated: `tools/test_port_detect_sim.py` fails 1 check on the Linux test shell ("legacy text ejector recognised at 115200"); `port_detect.py` not touched.
+
+### Done (not committed yet — the user commits)
+- **`capture_timing.py`** (new): `CaptureClock` (camera timestamp → PC time with the smallest offset over 300 frames; line period from the camera clock), `plan_blasts` (ON = row scan time + recipe DELAY, length = object lines + recipe PULSE, 1–200 ms), `TimedValveScheduler` (own thread, ON/OFF bytes at exact times, overlapping blasts merged, LATE/MISSED counters printed every 5 s, 3 ms spin, sets Python switch interval 0.5 ms).
+- **`capture_timing_config.json`** (new): settings with defaults.
+- **`LAMTON_LINE_NEW_ESP32.py`** (+50 lines): import; row tracking also when the switch is on; ESP_BYTE branch calls `_capture_timed_fire()` only when `capture_timed_eject_enabled`; new method `_capture_timed_fire` (recipe read max 2×/s, `W` watchdog every 5 s, REAR extra delay); start clears/resets; stop switches timed valves off. **Switch OFF = old code path unchanged.**
+- **`features.py`**: new default `capture_timed_eject_enabled: False`; fixed `ejector_test_panel_button` default, which was hidden inside a comment on the `eject_diag_enabled` line.
+- **`features_config.json`**: `"capture_timed_eject_enabled": false` added.
+- Tests: `tools/test_capture_timing_sim.py` (clock jitter/wrap, row math, scheduler, merge, LATE/MISSED, clear) and `tools/test_capture_timed_eject_sim.py` (real `process_frame_for_defects` → `evaluate_fusion_and_fire` → bytes; falls back to empty PyQt5/pymodbus/serial stand-ins when not installed). Both ALL TESTS PASSED on the Linux shell: ON error 0.06 ms, blast 3.91 ms (plan 3.90).
+- Guide: `CAPTURE_TIMED_EJECT_TAMIL.md`. Backup of the changed files: `backups/20261102_before_capture_timing/` (+ `backups/` in `.gitignore`).
+
+### Done later the same day (user: "do what is needed")
+- **Switch `detection_fixes_enabled`** (OFF) + `min_defect_area_px` (4) in `LAMTON_LINE_NEW_ESP32.py` / `features.py` / `features_config.json`: a channel needs >= 4 defect pixels (counted over all rows) for GRAY and HSV; GRAY keeps the chosen colour plane (no silent switch to BLUE); GRAY background for the relative test = median of the inspected area (old: mean of each column's darkest pixel, which drops when product is dense -> defects missed); SIZE uses `thresh_lower` (68) when there is no camera threshold (old: 0 -> never fired). HSV hue wrap / SORT IN background NOT changed (needs a decision on what "background" is). Test `tools/test_detection_fixes_sim.py` ALL TESTS PASSED (OFF reproduces each old bug, ON fixes it); cost +0.2 ms per 64-line frame.
+- **Firmware restored**: commit 4f3f333 (31 Oct, "Clean up ...") had deleted all 13 ESP32 sketch folders incl. the working originals and v3.0, plus `firmware_backups/` (rule 1). Restored from `4f3f333^` to the same paths, 15 files, all byte-identical (git hash check). Not committed yet.
+- **`ESP32_63CH_Ejector_v3_1/`** (new) = v3.0 + PIN_PROFILE 3 = esp.ino wiring (DATA 13, CLOCK 14, LATCH 12) as default. NOT compiled (no arduino-cli), NOT hardware-tested.
+- `PHASE3_GUIDE.md` section 0 (probe result -> Plan A, which firmware), `CLAUDE.md` key-files line.
+- Old tests, run with empty PyQt5 stand-ins on the Linux shell: test_timing_sim, test_ejector_link_sim, test_capture_sim, test_ejector_protocol, test_object_stream PASS. **test_fusion_fix: 2 FAIL (long-object "bridged pulse") - same 2 fails with the original file from before today**: the 31 Oct commits removed the bridging; not caused by today's changes.
+
+### Next step
+1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
+2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.
+3. With approval: noise filter (min area), GRAY/HSV/SIZE fixes, frame height 32, then ESP32 line trigger (camera LineTrig) for line-synchronous firing.
+4. Restore the licence lock before any customer delivery.
+
+---
+
 ## 16 Oct 2026 (afternoon) — panel integrated, portable paths, system check, developer mode, deployment package (in progress)
 
 ### Done and committed

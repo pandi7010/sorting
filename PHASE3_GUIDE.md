@@ -1,5 +1,12 @@
 # Phase 3 — Low-latency, line-synchronous firing (PREPARED, DISABLED)
 
+## 0. Status 2 Nov 2026 (read this first)
+
+- **Probe done** (machine PC): MV-GELM44C, 8,842 lines/s, trigger modes include **LineTrig**; inputs 0/1 = **ROTARYENC (RS422)**, input 2 = **opto trigger**; outputs = strobe + GP. So **Plan A works**: ESP32 GPIO 25 -> **AM26LS31** RS-422 driver -> camera encoder input 0 (+/-), *or* GPIO 25 -> TC4427 at 12 V -> opto input 2 with `LineTrig`. Check the camera manual for the maximum input frequency (need ~9 kHz) before choosing.
+- The machine runs **`esp/esp.ino`** (byte protocol), wired DATA 13 / CLOCK 14 / LATCH 12. v3.0's legacy profile is DATA 14 / CLOCK 13 (swapped!). Use **`ESP32_63CH_Ejector_v3_1`** (= v3.0 + PIN_PROFILE 3 for this wiring, default). Not compiled / not hardware-tested yet. After the upload check the channel order with the EJECTOR TEST PANEL (v3 has a REMAP table if channels come out in a different order).
+- The firmware folders deleted by commit 4f3f333 (31 Oct) were restored from git on 2 Nov (byte-identical).
+- Until the line trigger is wired, use **`capture_timed_eject_enabled`** (CAPTURE_TIMED_EJECT_TAMIL.md): same idea (fire at line time + DELAY) but timed on the PC from the camera timestamp.
+
 **Status:** code + firmware written; **simulation tested only**. It stays OFF until the camera probe confirms
 trigger support **and** you switch it on. With everything OFF, the sorter runs exactly like Phase 1
 (proved: identical decisions to the original code on 150 random frames).

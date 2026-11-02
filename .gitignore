@@ -30,3 +30,6 @@ logs/
 
 # Developer-mode unlock (developer PC only - never commit, never ship)
 dev_unlock*.json
+
+# Local backups made before changes (2 Nov 2026)
+backups/

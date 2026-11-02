@@ -12,6 +12,12 @@ until you switch something on in  features_config.json  (restart the program aft
       "channel_calibration_enabled": false Phase 3: use channel_calibration.json pixel boundaries
       "boundary_margin_px": 0,             Phase 3: let channel slices overlap by N pixels
       "continuous_capture_button": false,  Phase 4: show the CONTINUOUS CAPTURE button
+      "capture_timed_eject_enabled": false ESP_BYTE firmware: valve opens at (defect line time + recipe DELAY)
+                                           for (object length + recipe PULSE) - see capture_timing.py
+      "detection_fixes_enabled": false     a channel needs >= min_defect_area_px defect pixels (no 1-pixel
+                                           triggers); GRAY keeps the chosen colour; GRAY background = median;
+                                           SIZE works without a camera threshold
+      "min_defect_area_px": 4
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -30,7 +36,11 @@ DEFAULTS = {
     "channel_calibration_enabled": False,
     "boundary_margin_px": 0,
     "continuous_capture_button": False,
-    "eject_diag_enabled": False,           # print per-channel pixel counts once per second (read-only diagnostic)    "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
+    "eject_diag_enabled": False,           # print per-channel pixel counts once per second (read-only diagnostic)
+    "capture_timed_eject_enabled": False,  # 2 Nov 2026: ESP_BYTE valves fire at line scan time + recipe DELAY
+    "detection_fixes_enabled": False,      # 2 Nov 2026: min defect area, GRAY channel/background, SIZE threshold
+    "min_defect_area_px": 4,               # used by detection_fixes_enabled: defect pixels needed per channel
+    "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
 }
 
 _cache = None

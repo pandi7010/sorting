@@ -1,0 +1,13 @@
+{
+    "default_line_rate_hz": 8842.0,
+    "camera_ts_unit_ms": 0.1,
+    "offset_window_frames": 300,
+    "late_tolerance_ms": 1.0,
+    "min_pulse_ms": 1.0,
+    "max_pulse_ms": 200.0,
+    "rear_extra_delay_ms": 0.0,
+    "use_camera_timestamp": true,
+    "stats_print_s": 5.0,
+    "spin_ms": 3.0,
+    "gil_switch_interval_ms": 0.5
+}
