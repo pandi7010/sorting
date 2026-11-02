@@ -28,6 +28,15 @@
 - `PHASE3_GUIDE.md` section 0 (probe result -> Plan A, which firmware), `CLAUDE.md` key-files line.
 - Old tests, run with empty PyQt5 stand-ins on the Linux shell: test_timing_sim, test_ejector_link_sim, test_capture_sim, test_ejector_protocol, test_object_stream PASS. **test_fusion_fix: 2 FAIL (long-object "bridged pulse") - same 2 fails with the original file from before today**: the 31 Oct commits removed the bridging; not caused by today's changes.
 
+### Windows run on the development PC (11:30, user handed over the computer)
+- `COMPILE_EJECTOR_V3_1.bat` (arduino-cli 1.5.1 inside Arduino IDE, esp32 core 3.3.12, compile only, no upload): **v3.1 compiles** (306,608 bytes = 23 % flash, 24,916 bytes RAM); v3.0 also compiles. Log `logs\compile_v3_1.txt`. Still NOT hardware-tested.
+- `RUN_ALL_TESTS.bat` (`.venv` Python 3.11.9, real PyQt5, `QT_QPA_PLATFORM=offscreen`, restores ejector_config.json / system_config.json afterwards). Log `logs\test_run.txt`.
+  - First run: `test_capture_timing_sim` **failed on Windows**: valve ON 18 ms late, because Windows sleeps in 15.6 ms steps unless a 1 ms timer is requested (the sorter requests it at start, a stand-alone scheduler did not). **Fixed**: `TimedValveScheduler.run()` calls `timeBeginPeriod(1)` on Windows.
+  - Second run: capture_sim, capture_timed_eject_sim (ON error **0.16 ms**), capture_timing_sim (ON error **0.02 ms**, blast 4.99/5 ms), capture_ui_sim, detection_fixes_sim, ejector_link_sim, ejector_protocol, ejector_test_panel_sim, object_stream, port_settings_sim: **PASS**.
+  - Pre-existing fails (not from today's changes): test_fusion_fix (2, bridged pulse removed on 31 Oct), test_port_detect_sim (1, legacy text firmware at 115200), test_line_sync_sim (its baseline commit f705b02 no longer exists - the repo history was restarted, 22 commits).
+  - Processing time on this PC: **~3.7 ms per 64-line frame** (detection fixes ON or OFF the same). One frame lasts 7.2 ms, so 64 lines is fine; 32-line frames (3.6 ms) would leave no headroom on this PC.
+- torch in `.venv` fails with WinError 1114 when the sorter module is imported from a test (known import-order issue); CNN/YOLO disabled in the tests, sorting path unaffected.
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.

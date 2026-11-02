@@ -203,6 +203,14 @@ class TimedValveScheduler(threading.Thread):
         gi = float(self.cfg.get("gil_switch_interval_ms", 0) or 0)
         if gi > 0:
             sys.setswitchinterval(gi / 1000.0)
+        if sys.platform == "win32":
+            # Windows sleeps in 15.6 ms steps unless a 1 ms timer is requested (the sorter does this at start;
+            # do it here too so the scheduler is accurate on its own - measured 18 ms late without it)
+            try:
+                import ctypes
+                ctypes.windll.winmm.timeBeginPeriod(1)
+            except Exception:
+                pass
         while self.running:
             to_on, to_off = [], []
             with self._lock:
