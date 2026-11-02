@@ -11164,6 +11164,16 @@ class BackgroundGraphWindow(QDialog):
                     link._write(bytes(held))
                 self._wd_refresh_t = now_wd
 
+        if (features.enabled("clean_channel_switch_enabled") and getattr(link, 'mode', None) == "ESP_BYTE"
+                and (newly_on or to_turn_off)):
+            # old channel OFF and new channel ON in ONE write, OFF first
+            for ch in to_turn_off:
+                self.hw_active_channels.discard(ch)
+            for ch in newly_on:
+                self.hw_active_channels.add(ch)
+            link._write(bytes([ch + 100 for ch in to_turn_off]) + bytes(newly_on))
+            newly_on, to_turn_off = [], []
+
         if newly_on:
             for ch in newly_on:
                 self.hw_active_channels.add(ch)
@@ -12193,6 +12203,13 @@ class MainDashboard(QMainWindow):
         # 2 Nov 2026 (switch detection_fixes_enabled, OFF = old behaviour): minimum defect AREA per channel,
         # GRAY uses the chosen colour plane, GRAY background = median, SIZE threshold fallback
         _det_fix = features.enabled("detection_fixes_enabled")
+        # 2 Nov 2026 (switch clean_channel_switch_enabled, OFF = old): a channel needs >= channel_min_px pixel
+        # columns (like the Background Graph window), so 1 edge pixel left in the old channel no longer holds its valve
+        _clean_sw = features.enabled("clean_channel_switch_enabled")
+        try:
+            _ch_min_px = max(1, int(features.value("channel_min_px", 2)))
+        except Exception:
+            _ch_min_px = 2
         try:
             _min_area = max(1, int(features.value("min_defect_area_px", 4)))
         except Exception:
@@ -12214,6 +12231,8 @@ class MainDashboard(QMainWindow):
         results_by_channel = {ch_idx: [] for ch_idx in range(num_channels)}
 
         def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2, area_mask=None):
+            if _clean_sw:
+                min_px = max(min_px, _ch_min_px)
             if start_pixel > 0: algo_trig[:start_pixel] = False
             if end_pixel < len(algo_trig): algo_trig[end_pixel:] = False
             trig_px = np.where(algo_trig)[0]
@@ -12708,6 +12727,15 @@ class MainDashboard(QMainWindow):
                     if held:
                         link._write(bytes(held))
                     self._wd_refresh_t = now_wd
+
+                if features.enabled("clean_channel_switch_enabled") and (newly_on or to_turn_off):
+                    # old channel OFF and new channel ON in ONE write, OFF first (the ESP32 applies both together)
+                    for ch in to_turn_off:
+                        self._live_hw_active.discard(ch)
+                    for ch in newly_on:
+                        self._live_hw_active.add(ch)
+                    link._write(bytes([ch + 100 for ch in to_turn_off]) + bytes(newly_on))
+                    newly_on, to_turn_off = [], []
 
                 if newly_on:
                     for ch in newly_on:

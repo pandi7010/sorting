@@ -37,6 +37,11 @@
   - Processing time on this PC: **~3.7 ms per 64-line frame** (detection fixes ON or OFF the same). One frame lasts 7.2 ms, so 64 lines is fine; 32-line frames (3.6 ms) would leave no headroom on this PC.
 - torch in `.venv` fails with WinError 1114 when the sorter module is imported from a test (known import-order issue); CNN/YOLO disabled in the tests, sorting path unaffected.
 
+### Channel switching (user question 11:53: object moves from one channel to the next -> old valve OFF, new ON at once)
+- Mapping (main path and Background Graph): channel = int((pixel - start) / ((end - start) / 63)); FRONT 19..4046 -> 63.92 px per channel, boundary ch1|ch2 at pixel 82.9.
+- Simulation, 4-px needle moving 1 px per frame across that boundary: **Background Graph** switches cleanly (ch1 -> ch1+2 for one frame while 2 px are in each -> ch2). **Main sorting path** kept ch1 ON for 3 frames with both valves, because a channel there needs only 1 pixel column (`min_px = scale/4` = 1 for scale 6). With FRONT + REAR, if REAR's start/end are not matched to FRONT, the old valve stays ON as long as REAR still sees the needle in the old channel (6 px offset -> 6 extra frames): the union FRONT|REAR is right for sorting, so this is a **calibration** job (same needle position must give the same channel on both cameras), not a code change.
+- **Switch `clean_channel_switch_enabled`** (OFF) + `channel_min_px` (2): main path needs >= 2 pixel columns per channel (same as the graph window); main path and graph window send the old channel OFF and the new channel ON in **one write, OFF first**. Test `tools/test_channel_switch_sim.py` ALL TESTS PASSED (OFF reproduces the 3-frame overlap; ON = identical to the graph window; jump ch1 -> ch2 = single write `OFF1, ON2`).
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.

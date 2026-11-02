@@ -94,3 +94,17 @@ Idhu timing illa, **defect kandupidikkira logic** ku. ON pannaa:
 Test: `python tools\test_detection_fixes_sim.py` ALL TESTS PASSED nu varanum. (OFF la ovvoru pazhaya bug um varudhu, ON la fix aagudhu.)
 
 **Eppadi try pannradhu:** `features_config.json` la `"detection_fixes_enabled": true`, restart. Reject bin la nalla grain kammiyaa vizhudha, kettadhu miss aagudha nu paarunga. Chinna defects (3 mm seeds) miss aanaa `min_defect_area_px` ah 4 la irundhu 2 ku kammi pannunga.
+
+---
+
+# Moonaavadhu switch: `clean_channel_switch_enabled` (default false)
+
+**Problem:** object ch1 la irundhu ch2 ku move aanaalum, ch1 la **1 pixel** mattum irundhaa kooda main sorting path ch1 valve ah ON laye vechudhu (simulation la 3 frames extra). Background Graph window la 2 pixel filter irundhadhaala adhu sariyaa switch aachu.
+
+**ON pannaa:**
+- Oru channel ku **minimum 2 pixel columns** venum (`channel_min_px`), Background Graph maadhiriye.
+- Pazhaya channel **OFF** um pudhu channel **ON** um **ore message** la pogum, OFF mudhalla.
+
+**Innum oru kaaranam (calibration):** FRONT and REAR camera rendum ore needle position ku ore channel sollanum. REAR-oda START/END pixel FRONT oda match aagaatti, REAR innum "ch1" nu sollum varaikkum ch1 ON laye nikkum. Check panra murai: needle ah oru channel boundary la vechu, Background Graph la FRONT view um REAR view um ore channel number kaattudha nu paarunga. Illa na REAR START/END ah nudge pannunga.
+
+Test: `python tools\test_channel_switch_sim.py`

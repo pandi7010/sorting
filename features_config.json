@@ -8,6 +8,8 @@
     "capture_timed_eject_enabled": false,
     "detection_fixes_enabled": false,
     "min_defect_area_px": 4,
+    "clean_channel_switch_enabled": false,
+    "channel_min_px": 2,
     "continuous_capture_button": false,
     "ejector_test_panel_button": true
 }

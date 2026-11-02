@@ -18,6 +18,9 @@ until you switch something on in  features_config.json  (restart the program aft
                                            triggers); GRAY keeps the chosen colour; GRAY background = median;
                                            SIZE works without a camera threshold
       "min_defect_area_px": 4
+      "clean_channel_switch_enabled": false  a channel needs >= channel_min_px pixel columns (as in the
+                                           Background Graph window); old channel OFF + new channel ON in one write
+      "channel_min_px": 2
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -40,6 +43,8 @@ DEFAULTS = {
     "capture_timed_eject_enabled": False,  # 2 Nov 2026: ESP_BYTE valves fire at line scan time + recipe DELAY
     "detection_fixes_enabled": False,      # 2 Nov 2026: min defect area, GRAY channel/background, SIZE threshold
     "min_defect_area_px": 4,               # used by detection_fixes_enabled: defect pixels needed per channel
+    "clean_channel_switch_enabled": False, # 2 Nov 2026: >= channel_min_px columns per channel; OFF+ON in one write
+    "channel_min_px": 2,                   # used by clean_channel_switch_enabled (Background Graph uses 2)
     "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
 }
 
