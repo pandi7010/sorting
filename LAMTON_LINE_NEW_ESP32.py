@@ -11017,6 +11017,9 @@ class BackgroundGraphWindow(QDialog):
                 mw = getattr(self.parent_ui, 'main_window', None)
                 if mw and hasattr(mw, 'bg_settings'):
                     mw.bg_settings["camera_thresh"] = self.camera_thresh
+                    # 2 Nov 2026 fix: the SOURCE colour must follow too - before, a running sorter kept the old
+                    # wave mode (e.g. BLUE) with the new thresholds (set for GREEN) until it was restarted
+                    mw.bg_settings["wave_mode"] = data["wave_mode"]
         except Exception as e:
             print("Save Error:", e)
 

@@ -62,6 +62,12 @@
 - Wire calibration with 3 wires held still: FRONT 6 / 32 / 58; REAR (END 3981) 6 / 32-33 / 59. **REAR END 3981 -> 4045** (saved on the machine, camera_config.json there): REAR now 6 / 32 / 58 = FRONT.
 - **START SYSTEM fired all 63 valves on an empty chute.** Cause: RICE had `SIZE: BIG`; old SIZE compares the mean of B, G, R column minimums with the LOWER threshold (68). With blue + white lights the empty background is B~100, G~40, R~30 -> mean ~57 < 68 -> every column "dark", every channel 64 px >= 46 px "BIG". Simulation: SIZE: BIG 63/63, HSV COLOR 0/63 on an empty chute. Fixed on the machine by switching SIZE: BIG OFF in RICE (now HSV COLOR only); user confirmed no firing on START. (With `runtime_sliders_enabled` SIZE uses the graph thresholds on the wave-mode planes instead.)
 
+### Machine, 14:39-15:16 - rice test with BACKGROUND (GRAPH)
+- User set `background_graph_algo_enabled` true and restarted; RICE = BACKGROUND (GRAPH) only (saved via AnyDesk).
+- Rice in the graph (FRONT, blue + white lights): BLUE background ~100-120, rice only ~75-90 (mostly above the lower threshold -> only grain edges fired); GREEN background ~45, rice ~85-90; RED ~30 -> ~80. **SOURCE changed BLUE -> GREEN** (graph dropdown; it chooses the camera colour plane, not the lights). Thresholds: FRONT HI 75 / LO 20 (green background up to ~62 at ch 3), REAR HI 65 / LO 15 (green background up to ~48; REAR green gain 80 vs FRONT 100 - check REAR rice level and adjust). Empty chute: no LED. Rice: LEDs fire.
+- Background Graph **test firing checks only the newest 2 lines of each 64-line frame** (`eject_lines`): a ~15-line grain is seen with ~25 % probability -> use START SYSTEM (all 64 lines) for product tests, the graph only for wire/threshold work.
+- **Bug fixed: graph SAVE pushed the thresholds to the running sorter but not the SOURCE colour** -> after BLUE -> GREEN a running sorter applied the GREEN thresholds (20/75) to the BLUE plane (~120) = all 63 valves. Now `wave_mode` is synced too (test added to `tools/test_graph_view_switch.py`, passes on Windows). On the machine the user restarts the sorter until this is pulled.
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.

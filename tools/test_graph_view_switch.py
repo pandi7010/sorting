@@ -81,5 +81,24 @@ for i in range(6):
 BG._detach_camera_workers(g)
 check("close: no camera feeds the window any more", frames() == [], str(got))
 
+print("Saving the graph settings updates the running sorter (thresholds AND source colour)")
+import tempfile  # noqa: E402
+_tmp = tempfile.mkdtemp()
+_old_cwd = os.getcwd()
+os.chdir(_tmp)                                  # bg_config.json is written to the current folder
+try:
+    mw = NSMain = type("MW", (), {})()
+    mw.bg_settings = {"wave_mode": "BLUE", "camera_thresh": {}}
+    g.parent_ui = type("PU", (), {})()
+    g.parent_ui.main_window = mw
+    g.wave_mode = "GREEN"
+    g.camera_thresh["FRONT"].update({"lower": 20, "upper": 75})
+    BG.save_settings_silent(g)
+    check("running sorter gets the new thresholds", mw.bg_settings["camera_thresh"]["FRONT"]["upper"] == 75)
+    check("running sorter gets the new SOURCE colour (GREEN)", mw.bg_settings.get("wave_mode") == "GREEN",
+          str(mw.bg_settings.get("wave_mode")))
+finally:
+    os.chdir(_old_cwd)
+
 print("\nALL TESTS PASSED" if not fails else f"FAILED: {fails}")
 sys.exit(1 if fails else 0)
