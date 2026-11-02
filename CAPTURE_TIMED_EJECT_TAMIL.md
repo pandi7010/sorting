@@ -170,3 +170,9 @@ ON panna: `features_config.json` la `"program_settings_fix_enabled": true`, rest
 - Background Graph window la irukkura DELAY / DWELL andha window oda test firing ku mattum. Sorting ku EJECTORS dialog la set pannunga.
 
 Test: `python tools\test_delay_dwell_sim.py` (DELAY 15/22/40/60, DWELL 2/3/5/10, sorting nadakkum podhe DELAY maathuradhu, DELAY 2 → LATE, DWELL 0 → 1 ms). Simulation la ellam ±0.6 ms kulla correct. Real valve la innum test pannanum.
+
+# LED bar "vaal" (tail) + CAM LOAD (2 Nov 2026)
+
+- Wire ah vegama nagarthinaa LED bar la 10–16 channels "vaal" maadhiri lit aagi irundhuchu. Adhu **display hold** (0.15 s, kannukku theriyanum nu). Valve oda real close illa.
+- Ippo: **BRIGHT red = valve ippo ON**, **DIM (dark) red = 0.15 s kulla fire aachu, valve already close**. Text la "VALVES ON NOW: x ch (trail y)".
+- Pudhusa **CAM LOAD F a/b ms R c/d ms**: a = ovvoru frame kum PC edukkura neram, b = camera frame idaiveli (~7.2 ms). F + R b ku kitta poana frames queue aagum, appo valve open um close um late aagum. Appo "SLOW: frames queue -> valves late!" nu varum.

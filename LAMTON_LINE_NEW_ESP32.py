@@ -3079,11 +3079,15 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
     counts the fires per channel since START, to find channels that fire on an empty chute.
     Clicking does NOT fire a valve here (that is what the EJECTOR TEST PANEL is for)."""
 
-    HOLD_S = 0.15          # a channel stays lit this long after its last detection (otherwise too fast to see)
+    HOLD_S = 0.15          # TRAIL: a channel stays DIM red this long after its last detection (otherwise too fast to see)
+    # 2 Nov 2026: BRIGHT red = valve ON right now (last frame); DIM red = fired in the last 0.15 s (display trail
+    # only - the valve itself is already closed). Before, both looked the same: a moving wire left a long "tail".
 
     def __init__(self, num_channels=63, parent=None):
         super().__init__(num_channels=num_channels, parent=parent)
-        self.setToolTip("Live ejector channels of the running sorter (lit = fired in the last 0.15 s)")
+        self.setToolTip("Live ejector channels: BRIGHT red = valve ON now, DIM red = fired in the last 0.15 s (trail)")
+        self.trail_channels = set()
+        self.stats_fn = None              # callback() -> str, extra text (camera load)
         self.setCursor(Qt.ArrowCursor)
         self._lock = threading.Lock()
         self._last_on = {}
@@ -3119,15 +3123,46 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
     def _refresh(self):
         now = time.perf_counter()
         with self._lock:
-            active = [ch for ch, t in self._last_on.items() if now - t < self.HOLD_S]
+            recent = set(ch for ch, t in self._last_on.items() if now - t < self.HOLD_S)
+            now_on = set(self._was_on)
             top = sorted(self.counts.items(), key=lambda kv: -kv[1])[:5]
             total = sum(self.counts.values())
-        self.set_active_channels(active)
+        trail = recent - now_on
+        if trail != self.trail_channels:
+            self.trail_channels = trail
+            self.update()
+        self.set_active_channels(sorted(now_on))
         if self.on_summary:
-            txt = f"FIRING NOW: {len(active)} ch   |   since START: {total} blasts"
+            txt = f"VALVES ON NOW: {len(now_on)} ch (trail {len(trail)})   |   since START: {total} blasts"
             if top:
                 txt += "   |   most: " + "  ".join(f"ch{c}x{n}" for c, n in top)
+            if self.stats_fn:
+                try:
+                    extra = self.stats_fn()
+                    if extra:
+                        txt += "   |   " + extra
+                except Exception:
+                    pass
             self.on_summary(txt)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.trail_channels:
+            return
+        painter = QPainter(self)
+        n = max(1, self.num_channels)
+        ch_w = self.width() / n
+        h = self.height()
+        painter.setFont(QFont("Segoe UI", 7))
+        for ch in self.trail_channels:
+            if ch in self.active_channels or not (1 <= ch <= n):
+                continue
+            x1 = int((ch - 1) * ch_w)
+            cw = max(2, int(ch * ch_w) - x1)
+            painter.fillRect(x1 + 1, 6, max(1, cw - 2), h - 12, QColor(90, 18, 18))
+            painter.setPen(QColor(200, 120, 120))
+            painter.drawText(QRect(x1 - 6, 6, cw + 12, h - 12), Qt.AlignCenter, str(ch))
+        painter.end()
 
     def mousePressEvent(self, event):
         QWidget.mousePressEvent(self, event)
@@ -9457,6 +9492,17 @@ class GigECameraWorker(QThread):
                     self.latest_frame = frame
                     self.frame_ready.emit(frame)
                     self._timeout_count = 0
+                    # 2 Nov 2026: load per frame (convert + crop + sorting decision, which runs inside emit) and the
+                    # camera's frame period. busy > period = the PC falls behind: frames queue up and the valves
+                    # open AND close late (shown on the main-screen LED line as "CAM LOAD").
+                    _busy = (time.perf_counter() - _t_arrive) * 1000.0
+                    self.busy_ms = _busy if getattr(self, 'busy_ms', None) is None else 0.9 * self.busy_ms + 0.1 * _busy
+                    _ts = int(FrameHead.uiTimeStamp)
+                    _pts = getattr(self, '_prev_cam_ts', None)
+                    self._prev_cam_ts = _ts
+                    if _pts is not None and 0 < _ts - _pts < 20000:
+                        _per = (_ts - _pts) * 0.1                 # camera timestamp unit = 0.1 ms
+                        self.period_ms = _per if getattr(self, 'period_ms', None) is None else 0.9 * self.period_ms + 0.1 * _per
 
                 except mvsdk.CameraException as e:
                     if e.error_code == 164: # CAMERA_STATUS_TIME_OUT
@@ -12789,6 +12835,22 @@ class MainDashboard(QMainWindow):
 
         return final_decision
 
+    def _cam_load_text(self):
+        """'CAM LOAD F 3.1/7.2 ms  R 3.3/7.2 ms' - work per frame vs time between frames (both cameras share
+        one Python interpreter, so F + R must stay below one frame period or frames queue up = late valves)."""
+        parts, tot, per = [], 0.0, None
+        for tag, w in (("F", getattr(self, 'camera_worker_front', None)), ("R", getattr(self, 'camera_worker_rear', None))):
+            b, p = getattr(w, 'busy_ms', None), getattr(w, 'period_ms', None)
+            if b is None or p is None:
+                continue
+            parts.append(f"{tag} {b:.1f}/{p:.1f} ms")
+            tot += b
+            per = p if per is None else min(per, p)
+        if not parts:
+            return ""
+        warn = "  SLOW: frames queue -> valves late!" if per and tot > 0.9 * per else ""
+        return "CAM LOAD " + "  ".join(parts) + warn
+
     def _capture_timed_fire(self, link, source, dec, frame_channels):
         """Switch capture_timed_eject_enabled (features_config.json). ESP_BYTE firmware (esp/esp.ino).
         Uses the recipe DELAY (camera line -> nozzle, ms) and PULSE (extra blast, ms). See capture_timing.py."""
@@ -14622,6 +14684,7 @@ class MainDashboard(QMainWindow):
         self.lbl_live_led = QLabel("FIRING NOW: 0 ch   |   since START: 0 blasts")
         self.lbl_live_led.setStyleSheet("color: #ff8a80; font-size: 11px; font-weight: bold;")
         self.live_led_bar.on_summary = self.lbl_live_led.setText
+        self.live_led_bar.stats_fn = self._cam_load_text
         footer_layout.addWidget(self.live_led_bar)
         footer_layout.addWidget(self.lbl_live_led)
 

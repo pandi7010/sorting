@@ -2,6 +2,17 @@
 
 ---
 
+## 2 Nov 2026 (evening 3) - LED bar tail vs real valve; CAM LOAD readout
+
+- User: moving a wire left/right leaves a long "tail" of lit channels (seen on AnyDesk: 11-16 channels lit for one wire).
+  Cause: the main-screen LED bar kept every channel lit 0.15 s (HOLD_S) after its last detection; the real ESP_BYTE
+  path switches the valve OFF on the next frame without the wire (<= 1 frame = 7.2 ms + processing).
+- Change (display only, valve path untouched): BRIGHT = valve ON now (last frame), DIM = trail (fired in the last 0.15 s);
+  text "VALVES ON NOW: n ch (trail m)". New "CAM LOAD F busy/period R busy/period" from the camera workers (convert + crop +
+  sorting decision per frame vs camera frame period from uiTimeStamp); "SLOW: frames queue" when F + R > 0.9 x period,
+  because then frames queue and valves open AND close late. Real valve close time still to be measured (slow-motion).
+- Windows test run: all pass except the 3 known old failures (fusion_fix, line_sync_sim, port_detect_sim).
+
 ## 2 Nov 2026 (evening 2) - PULSE renamed DWELL; DELAY / DWELL checked (`tools/test_delay_dwell_sim.py`)
 
 - Labels only (recipe key stays `"pulse"`): EJECTORS dialog "DWELL (ms)", Background Graph "DWELL (ms)" (was BLOW),
