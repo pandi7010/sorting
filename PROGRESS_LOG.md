@@ -72,6 +72,13 @@
 - START SYSTEM (RICE = BACKGROUND (GRAPH), GREEN) fired on an "empty" chute. The main screen had no LED bar (footer placeholder was empty) -> **LiveEjectorLEDBar** added (e8514b0). It showed: 254 blasts, only **ch 38-44** (most ch40 x29, ch44 x29). Graph FRONT and REAR green background at ch 38-44 is clean (~35, far below HI) -> not noise. START turns the feeder on automatically, so most likely leftover rice from the vibrator tray (feeder stream lands there) - user to check with an empty tray.
 - **Bug fixed: the Background Graph window always opened with SOURCE = BLUE** (hard-coded) and saved that back on close, so after choosing GREEN, re-opening + closing the window wrote BLUE with the GREEN thresholds (20/75) -> BLUE background ~120 > 75 -> all valves. Now the saved wave_mode is loaded and shown. Test in tools/test_graph_view_switch.py (real window). test_live_led_bar.py made robust (no timer dependence).
 
+### Machine, 15:45-15:52 - empty-chute firing solved, first good rice run
+- After pulling f430c8b the graph opens with SOURCE GREEN (fix confirmed).
+- START SYSTEM still fired with no rice: 884 blasts in 3 s, ch 31-36 and 39-46 (19,537 in total over the run). The graph (newest 2 lines) was clean with the feeder running. Cause: **BLACK (LO) = 20** on GREEN. START SYSTEM checks all 64 lines x ~64 px = ~4,096 samples per channel per frame; ch 30-46 is the darkest part of the background (green ~35), so downward noise crossed 20 almost every frame. Rice is BRIGHT in green, so the lower limit is not needed for this product: **FRONT and REAR LO = 0** (saved). Result: **0 blasts** on the empty chute for ~1 min.
+- Rice fed: 44 channels fired (ch 1-49, most ch 21-31 = feeder stream), back to 0 when the rice was gone (5,454 blasts). Still to check: how much rice actually reached the reject bin (timing / nozzle distance).
+- Machine settings now: RICE = BACKGROUND (GRAPH); SOURCE GREEN; FRONT HI 75 / LO 0 (start 19, end 4046); REAR HI 65 / LO 0 (start 60, end 4045); BLOW/DELAY 0 in the graph.
+- Lesson: thresholds chosen on the graph (2 lines) need margin for START SYSTEM (64 lines). A real fix is a minimum object size (switch `detection_fixes_enabled` + `min_defect_area_px`, e.g. 20-40 px) so single-pixel noise never fires.
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.
