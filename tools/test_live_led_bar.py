@@ -35,6 +35,7 @@ def check(n, c, i=""):
 
 app = QApplication.instance() or QApplication(sys.argv)
 bar = m.LiveEjectorLEDBar(num_channels=63)
+bar.HOLD_S = 0.5           # generous for a busy test PC; the real bar uses 0.15 s
 texts = []
 bar.on_summary = texts.append
 
@@ -58,14 +59,15 @@ def camera():
 th = threading.Thread(target=camera)
 th.start()
 th.join()
-pump(0.1)
+bar._refresh()             # what the GUI timer does every 60 ms
 check("lit while detected (ch 5, 63)", {5, 63} <= bar.active_channels, str(bar.active_channels))
 check("counts rising edges: ch5 = 2 blasts, ch63 = 1", bar.counts.get(5) == 2 and bar.counts.get(63) == 1, str(bar.counts))
 check("summary text shows the most active channel", texts and "ch5x2" in texts[-1], texts[-1] if texts else "")
-pump(0.25)
-check("goes dark 0.15 s after the last detection", bar.active_channels == set(), str(bar.active_channels))
+time.sleep(0.6)
+bar._refresh()
+check("goes dark HOLD_S after the last detection", bar.active_channels == set(), str(bar.active_channels))
 bar.reset()
-pump(0.1)
+bar._refresh()
 check("reset on START clears the counters", bar.counts == {} and "0 blasts" in texts[-1], texts[-1])
 
 print("\nALL TESTS PASSED" if not fails else f"FAILED: {fails}")

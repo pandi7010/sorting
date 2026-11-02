@@ -68,6 +68,10 @@
 - Background Graph **test firing checks only the newest 2 lines of each 64-line frame** (`eject_lines`): a ~15-line grain is seen with ~25 % probability -> use START SYSTEM (all 64 lines) for product tests, the graph only for wire/threshold work.
 - **Bug fixed: graph SAVE pushed the thresholds to the running sorter but not the SOURCE colour** -> after BLUE -> GREEN a running sorter applied the GREEN thresholds (20/75) to the BLUE plane (~120) = all 63 valves. Now `wave_mode` is synced too (test added to `tools/test_graph_view_switch.py`, passes on Windows). On the machine the user restarts the sorter until this is pulled.
 
+### Machine, 15:20-15:41 - live LED bar, empty-chute firing, graph SOURCE reset
+- START SYSTEM (RICE = BACKGROUND (GRAPH), GREEN) fired on an "empty" chute. The main screen had no LED bar (footer placeholder was empty) -> **LiveEjectorLEDBar** added (e8514b0). It showed: 254 blasts, only **ch 38-44** (most ch40 x29, ch44 x29). Graph FRONT and REAR green background at ch 38-44 is clean (~35, far below HI) -> not noise. START turns the feeder on automatically, so most likely leftover rice from the vibrator tray (feeder stream lands there) - user to check with an empty tray.
+- **Bug fixed: the Background Graph window always opened with SOURCE = BLUE** (hard-coded) and saved that back on close, so after choosing GREEN, re-opening + closing the window wrote BLUE with the GREEN thresholds (20/75) -> BLUE background ~120 > 75 -> all valves. Now the saved wave_mode is loaded and shown. Test in tools/test_graph_view_switch.py (real window). test_live_led_bar.py made robust (no timer dependence).
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.

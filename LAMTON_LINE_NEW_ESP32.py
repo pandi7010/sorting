@@ -10265,7 +10265,9 @@ class BackgroundGraphWindow(QDialog):
         self.load_bg_settings()  # Load thresholds
         self.load_camera_bounds()  # Load master pixel bounds from camera setup
 
-        self.wave_mode = "BLUE"
+        # 2 Nov 2026 fix: start with the SAVED source colour. It was always "BLUE", so opening and closing
+        # this window after choosing GREEN wrote BLUE back (with the GREEN thresholds) -> all valves fired.
+        self.wave_mode = getattr(self, '_saved_wave_mode', "BLUE") or "BLUE"
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
@@ -10328,6 +10330,8 @@ class BackgroundGraphWindow(QDialog):
         self.combo_color.addItems(
             ["BLUE", "GREEN", "RED", "COMBO: ALL (RGB)", "COMBO: BLUE+GREEN", "COMBO: RED+GREEN", "COMBO: RED+BLUE"])
         self.combo_color.setFixedSize(160, 40)
+        if self.combo_color.findText(self.wave_mode) >= 0:
+            self.combo_color.setCurrentText(self.wave_mode)      # show the saved SOURCE (2 Nov 2026)
         self.combo_color.currentTextChanged.connect(self.change_wave_mode)
         header.addWidget(self.combo_color)
 
@@ -11093,7 +11097,8 @@ class BackgroundGraphWindow(QDialog):
             try:
                 with open(BG_CONFIG_FILE, "r") as f:
                     data = json.load(f)
-                    
+                    self._saved_wave_mode = data.get("wave_mode", "BLUE")   # 2 Nov 2026: keep the saved SOURCE
+
                     if "camera_thresh" in data:
                         self.camera_thresh = data["camera_thresh"]
                     else:

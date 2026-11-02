@@ -100,5 +100,25 @@ try:
 finally:
     os.chdir(_old_cwd)
 
+print("Opening the graph window shows the SAVED source colour (not always BLUE)")
+import json  # noqa: E402
+_tmp2 = tempfile.mkdtemp()
+os.chdir(_tmp2)
+try:
+    with open("bg_config.json", "w") as f:
+        json.dump({"camera_thresh": {"FRONT": {"lower": 20, "upper": 75, "band_mode": False},
+                                     "REAR": {"lower": 15, "upper": 65, "band_mode": False}},
+                   "wave_mode": "GREEN"}, f)
+    win = BG(front_worker=None, rear_worker=None, esp32_handler=None)
+    check("window wave_mode = GREEN", win.wave_mode == "GREEN", str(win.wave_mode))
+    check("SOURCE dropdown shows GREEN", win.combo_color.currentText() == "GREEN", win.combo_color.currentText())
+    win.save_settings_silent()
+    with open("bg_config.json") as f:
+        check("closing/saving keeps GREEN in bg_config.json", json.load(f).get("wave_mode") == "GREEN")
+    win.timer.stop()
+    win.deleteLater()
+finally:
+    os.chdir(_old_cwd)
+
 print("\nALL TESTS PASSED" if not fails else f"FAILED: {fails}")
 sys.exit(1 if fails else 0)
