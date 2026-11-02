@@ -50,6 +50,13 @@
 - **Switch `hsv_box_fix_enabled`** (OFF): colour box maps through the shown (scaled, centred) image.
 - Test `tools/test_algo_fixes_sim.py` ALL TESTS PASSED on Windows (.venv, real PyQt5, incl. the HSV box: OFF corner -> (35,47), ON -> (1,0)). Full run 12:17: all pass except the 3 known old fails.
 
+### Machine PC session via AnyDesk (12:53-13:20)
+- Machine pulled 7fc1964. `RUN_ALL_TESTS.bat` on the machine (system Python 3.12.10): same results as the dev PC (valve timing error 0.02-0.10 ms, processing **3.2 ms per 64-line frame**, the 3 known old fails). **PyTorch does not load on the machine (WinError 1114)** - CNN/YOLO unavailable there, colour sorting unaffected.
+- Machine RICE program = SIZE: BIG + HSV COLOR (confirms the "only some channels" analysis). Background Graph FRONT BLOW 0.5 -> **0** (saved on the machine); REAR already 0/0. Thresholds FRONT 68/221 (start 19, end 4046), REAR 60/164 (start 60, end 3981).
+- FRONT camera was offline at first (user reconnected it at 13:09; both online afterwards).
+- Wire test, Background Graph: wire detected cleanly (dip far below the lower threshold), LEDs follow, all OFF when the wire leaves. Middle: FRONT ch 34 / REAR ch 33-34; left: FRONT ch 5 / REAR ch 4-5. Right edge not checked yet. **These REAR readings are not reliable** - see next point.
+- **Bug found and fixed: Background Graph VIEW FRONT<->REAR fed BOTH cameras into the window.** `load_camera_bounds()` connected `frame_ready` on every call, and `toggle_view()` called it before disconnecting the old camera, so the old camera stayed connected (seen as two alternating background shapes in REAR view; LEDs evaluated with the wrong camera's frames). Fix (no switch - tool bug): `_attach_camera_worker()` removes every connection of both cameras and connects exactly one; `toggle_view()` selects the camera before loading its bounds; close/reject/close_cleanly remove all connections. Test `tools/test_graph_view_switch.py` (real PyQt5 signals, 6 toggles) ALL TESTS PASSED on the dev PC. Repeat the FRONT/REAR wire comparison after pulling.
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.

@@ -10770,8 +10770,29 @@ class BackgroundGraphWindow(QDialog):
                 print("Error loading master camera bounds:", e)
 
         # Connect camera frame signal only after UI and attributes are fully constructed
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
+        # 2 Nov 2026 fix: attach EXACTLY ONE camera. The old code connected again on every call, and
+        # toggle_view() calls this before disconnecting, so after FRONT<->REAR the old camera stayed
+        # connected: both cameras' frames were shown and evaluated in one view (alternating backgrounds,
+        # LEDs from the wrong camera's bounds/thresholds).
+        self._attach_camera_worker(self.camera_worker)
+
+    def _detach_camera_workers(self):
+        """Remove every connection of both cameras to this window (a slot can be connected several times)."""
+        for w in (getattr(self, 'front_worker', None), getattr(self, 'rear_worker', None),
+                  getattr(self, 'camera_worker', None)):
+            if w is None or not hasattr(w, 'frame_ready'):
+                continue
+            for _ in range(50):
+                try:
+                    w.frame_ready.disconnect(self.update_live_frame)
+                except Exception:
+                    break
+
+    def _attach_camera_worker(self, worker):
+        self._detach_camera_workers()
+        self.camera_worker = worker
+        if worker is not None and hasattr(worker, 'frame_ready'):
+            worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -10780,11 +10801,7 @@ class BackgroundGraphWindow(QDialog):
 
     def closeEvent(self, event):
         self.local_system_running = False
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            try:
-                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
-            except Exception:
-                pass
+        self._detach_camera_workers()
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
@@ -10795,11 +10812,7 @@ class BackgroundGraphWindow(QDialog):
 
     def reject(self):
         self.local_system_running = False
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            try:
-                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
-            except Exception:
-                pass
+        self._detach_camera_workers()
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
@@ -10930,18 +10943,10 @@ class BackgroundGraphWindow(QDialog):
         self.btn_blow_val.setText(f"{float(self.eject_blow_ms):g}")
         self.apply_band_mode_ui()
 
-        self.load_camera_bounds()  # View மாறியவுடன் புதிய Pixel அளவுகளை எடுக்க
-
-        try:
-            if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
-        except Exception:
-            pass
-
+        # select the new camera first; load_camera_bounds() then attaches exactly this one camera
+        # (DirectConnection: runs in the camera thread, so no Qt event-queue backlog)
         self.camera_worker = self.rear_worker if self.camera_view == "REAR" else self.front_worker
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            # DirectConnection: runs in the camera thread, so no Qt event-queue backlog (always the newest frame)
-            self.camera_worker.frame_ready.connect(self.update_live_frame, Qt.DirectConnection)
+        self.load_camera_bounds()  # View மாறியவுடன் புதிய Pixel அளவுகளை எடுக்க
 
     def change_wave_mode(self, text):
         self.wave_mode = text
@@ -11057,11 +11062,7 @@ class BackgroundGraphWindow(QDialog):
 
     def close_cleanly(self):
         self.local_system_running = False
-        if self.camera_worker and hasattr(self.camera_worker, 'frame_ready'):
-            try:
-                self.camera_worker.frame_ready.disconnect(self.update_live_frame)
-            except Exception:
-                pass
+        self._detach_camera_workers()
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         if self.arduino and hasattr(self.arduino, 'stop_all_ejectors'):
