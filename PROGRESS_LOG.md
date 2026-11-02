@@ -57,6 +57,11 @@
 - Wire test, Background Graph: wire detected cleanly (dip far below the lower threshold), LEDs follow, all OFF when the wire leaves. Middle: FRONT ch 34 / REAR ch 33-34; left: FRONT ch 5 / REAR ch 4-5. Right edge not checked yet. **These REAR readings are not reliable** - see next point.
 - **Bug found and fixed: Background Graph VIEW FRONT<->REAR fed BOTH cameras into the window.** `load_camera_bounds()` connected `frame_ready` on every call, and `toggle_view()` called it before disconnecting the old camera, so the old camera stayed connected (seen as two alternating background shapes in REAR view; LEDs evaluated with the wrong camera's frames). Fix (no switch - tool bug): `_attach_camera_worker()` removes every connection of both cameras and connects exactly one; `toggle_view()` selects the camera before loading its bounds; close/reject/close_cleanly remove all connections. Test `tools/test_graph_view_switch.py` (real PyQt5 signals, 6 toggles) ALL TESTS PASSED on the dev PC. Repeat the FRONT/REAR wire comparison after pulling.
 
+### Machine, 14:21-14:31
+- After pulling 1b7e6a6: REAR view shows one camera only (fix confirmed on the machine).
+- Wire calibration with 3 wires held still: FRONT 6 / 32 / 58; REAR (END 3981) 6 / 32-33 / 59. **REAR END 3981 -> 4045** (saved on the machine, camera_config.json there): REAR now 6 / 32 / 58 = FRONT.
+- **START SYSTEM fired all 63 valves on an empty chute.** Cause: RICE had `SIZE: BIG`; old SIZE compares the mean of B, G, R column minimums with the LOWER threshold (68). With blue + white lights the empty background is B~100, G~40, R~30 -> mean ~57 < 68 -> every column "dark", every channel 64 px >= 46 px "BIG". Simulation: SIZE: BIG 63/63, HSV COLOR 0/63 on an empty chute. Fixed on the machine by switching SIZE: BIG OFF in RICE (now HSV COLOR only); user confirmed no firing on START. (With `runtime_sliders_enabled` SIZE uses the graph thresholds on the wave-mode planes instead.)
+
 ### Next step
 1. User: lens test (FRONT/REAR), product speed, commit, copy to the machine PC.
 2. Move nozzles to 70–80 mm, switch on, set DELAY (~22 ms at 80 mm, 3.5 m/s), read LATE/MISSED counters, fine-tune with a test bead.
