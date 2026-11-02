@@ -140,3 +140,21 @@ Switch ON la sliders, algorithm settings ah override pannum. AI PURITY, CHROME R
 3. Feeder ah **kammiyaana speed** la ON pannunga (air pressure ku). Rice vizhura ellaa channels um ON aaganum, kaali channels off ah irukkanum.
 
 Test: `python tools\test_algo_fixes_sim.py`
+
+# Program Settings cross-check (2 Nov 2026): `program_settings_fix_enabled` (default false)
+
+Program Settings la set panra ovvoru algorithm um real sorting code la check panniyaachu (`python tools\test_program_settings_audit.py`).
+
+| Algorithm | Ippo enna nadakkudhu |
+|---|---|
+| BACKGROUND (GRAPH) | Correct. Kaali chute = 0, rice irukkura channels mattum |
+| HSV SORT OUT | Correct (box colour mattum adikkum) |
+| **HSV SORT IN** | **Thappu**: kaali chute la kooda 63 um adikkum. Switch ON pannaa sari aagum |
+| **DISCOLOUR A/B** | **Thappu**: Color Combo (RED > GREEN...) ah sorter padikkave illa. Switch ON pannaa sari aagum |
+| GRAY DARK | LO 0 la black grain theriyaadhu. `detection_fixes_enabled` ON pannaa theriyum |
+| SIZE BIG/SHORT | White rice ah paakkaadhu. `runtime_sliders_enabled` venum |
+| AI DETECTION | Machine PC la torch work aagala, so edhuvum pannaadhu |
+
+Example: HSV SORT IN = "indha colour nalladhu, matha ellaam reject". Pazhaya code background um "matha colour" nu nenachu 63 valve um open pannum. Switch ON la, **product pixel** (graph LO/HI thaandura pixel) mattum dhaan paakkum.
+
+ON panna: `features_config.json` la `"program_settings_fix_enabled": true`, restart.

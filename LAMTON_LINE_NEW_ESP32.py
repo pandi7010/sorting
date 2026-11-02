@@ -12300,6 +12300,10 @@ class MainDashboard(QMainWindow):
         # detection + SIZE measures the whole object width (switch runtime_sliders_enabled). Both OFF = old.
         _bg_algo = features.enabled("background_graph_algo_enabled")
         _sliders = features.enabled("runtime_sliders_enabled")
+        # 2 Nov 2026 (switch program_settings_fix_enabled, OFF = old): HSV / DISCOLOUR only judge PRODUCT pixels
+        # (pixels the Background Graph sees as "not background"), so HSV SORT IN no longer fires all 63 on an
+        # empty chute; DISCOLOUR really uses its Color Combo (old code ignored it and used a fixed HSV box)
+        _prog_fix = features.enabled("program_settings_fix_enabled")
         _thr = getattr(self, 'thresholds', {}) or {}
 
         def _graph_mask():
@@ -12383,6 +12387,35 @@ class MainDashboard(QMainWindow):
                 if _track_rows:
                     _row_mask = _gm if _row_mask is None else (_row_mask | _gm)
                 _map_to_channels(np.any(_gm, axis=0), algo_name, "BACKGROUND", min_px=2, area_mask=_gm)
+                continue
+
+            if _prog_fix and "DISCOLOUR" in algo_name:
+                # same formula as the DISCOLOUR simulation in the settings dialog (AlgoSettingsDialog)
+                combo = str(cfg.get("combo", "RED > GREEN"))
+                try: sens = float(cfg.get("sens", 75))
+                except Exception: sens = 75.0
+                try: scale = int(cfg.get("scale", 16))
+                except Exception: scale = 16
+                fb, fg, fr = (frame[:, :, i].astype(np.int16) for i in (0, 1, 2))
+                if combo == "RED > GREEN":
+                    diff = fr - fg
+                elif combo == "GREEN > RED":
+                    diff = fg - fr
+                elif combo == "BLUE > YELLOW":
+                    diff = fb - (fg + fr) // 2
+                elif combo == "YELLOW DISCOLOUR":
+                    diff = (fg + fr) // 2 - fb
+                else:                                    # DARK > LIGHT
+                    diff = 255 - (fb + fg + fr) // 3
+                if sens <= 0:
+                    raw_def_mask = np.zeros(frame.shape[:2], dtype=bool)
+                else:
+                    raw_def_mask = diff > max(8, int(190 - sens * 1.8))
+                raw_def_mask &= _graph_mask()            # only product pixels
+                if _track_rows:
+                    _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
+                _map_to_channels(np.any(raw_def_mask, axis=0), algo_name, combo,
+                                 min_px=max(1, int(scale / 4)), area_mask=raw_def_mask)
                 continue
 
             if _sliders and "SIZE" in algo_name:
@@ -12594,6 +12627,8 @@ class MainDashboard(QMainWindow):
                 
                 if hsv_mode == "SORT IN":
                     raw_def_mask = ~raw_def_mask
+                if _prog_fix:
+                    raw_def_mask &= _graph_mask()        # only product pixels (the empty chute is never a defect)
 
                 if _track_rows:
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)

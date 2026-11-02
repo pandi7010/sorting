@@ -13,6 +13,7 @@
     "background_graph_algo_enabled": false,
     "runtime_sliders_enabled": false,
     "hsv_box_fix_enabled": false,
+    "program_settings_fix_enabled": false,
     "continuous_capture_button": false,
     "ejector_test_panel_button": true
 }

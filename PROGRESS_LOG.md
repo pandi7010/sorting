@@ -2,6 +2,32 @@
 
 ---
 
+## 2 Nov 2026 (evening) - Program Settings cross-check (`tools/test_program_settings_audit.py`)
+
+Every PROGRAM SETTINGS algorithm was run through the REAL `process_frame_for_defects` with the machine's settings
+(GREEN source, FRONT LO 0 / HI 75, start 19 / end 4046) on 4 simulated frames: EMPTY, white RICE, RICE + black grain,
+RICE + yellow grain. Settings path checked in code: dialog `save_and_close` -> `recipes.json` schemes[..].algorithms /
+algo_settings / camera_mode -> `main_window.program_data` updated at once (no restart) -> `process_live_frame`
+(SAME = REAR uses the FRONT list + settings, own start/end) -> `process_frame_for_defects`.
+
+| Algorithm (switches as on the machine) | Result |
+|---|---|
+| BACKGROUND (GRAPH) | **correct**: empty 0, exactly the rice channels (the machine uses this) |
+| GRAY A/B LIGHT | fires bright product (rice) - like "eject all" |
+| GRAY A/B DARK | with LO 0 it does **not** see a black grain on a dark background (threshold comes from LO). `detection_fixes_enabled` (median background) finds it |
+| SIZE: BIG / SHORT | old logic: dark-only, per-channel -> never fires on white rice. Needs `runtime_sliders_enabled` (object width) |
+| HSV SORT OUT | works (default box = yellow: only the yellow grain) |
+| **HSV SORT IN** | **BUG: fires all 63 channels even on an EMPTY chute** (background is "not the good colour") |
+| **DISCOLOUR A/B** | **BUG: Color Combo (RED>GREEN, YELLOW...) is never read**; sorter used a fixed HSV box |
+| AI DETECTION | needs YOLO + torch; torch fails on the machine PC -> does nothing (other algorithms continue) |
+| GRAY B + `runtime_sliders_enabled` | GRAY B THRESHOLD is absolute: default 128 > background (50) -> all 63 fire. Set it BELOW the background |
+| Recipe EJECTOR DELAY / PULSE | used only with `capture_timed_eject_enabled` |
+
+**Fix (switch `program_settings_fix_enabled`, default OFF = old behaviour):** HSV (SORT IN / OUT) and DISCOLOUR only judge
+product pixels (= what the Background Graph thresholds call "not background"); DISCOLOUR uses the same Color Combo
+formula as its settings-dialog simulation. Test: all 11 algorithm variants fire 0 on an empty chute with the switch ON;
+SORT IN rejects only the rice outside the box; DISCOLOUR YELLOW only the yellow grain. Simulation only - needs a real test.
+
 ## 2 Nov 2026 — code review + capture-timed ejection for the ESP_BYTE firmware (**SIMULATION ONLY: NOT HARDWARE-TESTED**)
 
 ### Facts found today (keep)

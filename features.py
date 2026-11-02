@@ -28,6 +28,8 @@ until you switch something on in  features_config.json  (restart the program aft
                                            threshold, SIZE (PIXELS) -> whole-object width for SIZE: BIG,
                                            AI THRESHOLD -> YOLO confidence
       "hsv_box_fix_enabled": false         HSV colour box selection maps through the shown image
+      "program_settings_fix_enabled": false  HSV / DISCOLOUR look only at product pixels (SORT IN no longer
+                                           fires the empty chute) and DISCOLOUR uses its Color Combo
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -55,6 +57,7 @@ DEFAULTS = {
     "background_graph_algo_enabled": False,# 2 Nov 2026: algorithm BACKGROUND (GRAPH) = Background Graph thresholds
     "runtime_sliders_enabled": False,      # 2 Nov 2026: RUNTIME TUNING sliders change detection; SIZE = object width
     "hsv_box_fix_enabled": False,          # 2 Nov 2026: HSV colour box = what you see on the colour map
+    "program_settings_fix_enabled": False, # 2 Nov 2026: HSV/DISCOLOUR only on product; DISCOLOUR Color Combo used
     "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
 }
 
