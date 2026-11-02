@@ -3073,6 +3073,66 @@ class SimulationOperatingLEDBar(QWidget):
 # =============================================================================
 # INTERACTIVE HSV COLOR MAP LABEL (FOR CLICK & DRAG COLOR SELECTION)
 # =============================================================================
+class LiveEjectorLEDBar(SimulationOperatingLEDBar):
+    """2 Nov 2026: main-screen 63-channel LED bar. Shows which channels the RUNNING sorter detects/fires
+    (camera threads call note(); a GUI timer repaints, so no widget is touched from a camera thread) and
+    counts the fires per channel since START, to find channels that fire on an empty chute.
+    Clicking does NOT fire a valve here (that is what the EJECTOR TEST PANEL is for)."""
+
+    HOLD_S = 0.15          # a channel stays lit this long after its last detection (otherwise too fast to see)
+
+    def __init__(self, num_channels=63, parent=None):
+        super().__init__(num_channels=num_channels, parent=parent)
+        self.setToolTip("Live ejector channels of the running sorter (lit = fired in the last 0.15 s)")
+        self.setCursor(Qt.ArrowCursor)
+        self._lock = threading.Lock()
+        self._last_on = {}
+        self._was_on = set()
+        self.counts = {}
+        self.on_summary = None            # callback(str) for a text label
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh)
+        self._timer.start(60)
+
+    def note(self, channels):
+        """Called from the camera threads with the channels active in this frame."""
+        if not channels:
+            return
+        now = time.perf_counter()
+        with self._lock:
+            for ch in channels:
+                if ch not in self._was_on:
+                    self.counts[ch] = self.counts.get(ch, 0) + 1      # count rising edges (new blasts)
+                self._last_on[ch] = now
+            self._was_on = set(channels)
+
+    def note_none(self):
+        with self._lock:
+            self._was_on = set()
+
+    def reset(self):
+        with self._lock:
+            self._last_on.clear()
+            self._was_on = set()
+            self.counts.clear()
+
+    def _refresh(self):
+        now = time.perf_counter()
+        with self._lock:
+            active = [ch for ch, t in self._last_on.items() if now - t < self.HOLD_S]
+            top = sorted(self.counts.items(), key=lambda kv: -kv[1])[:5]
+            total = sum(self.counts.values())
+        self.set_active_channels(active)
+        if self.on_summary:
+            txt = f"FIRING NOW: {len(active)} ch   |   since START: {total} blasts"
+            if top:
+                txt += "   |   most: " + "  ".join(f"ch{c}x{n}" for c, n in top)
+            self.on_summary(txt)
+
+    def mousePressEvent(self, event):
+        QWidget.mousePressEvent(self, event)
+
+
 class InteractiveHSVLabel(QLabel):
     def __init__(self, parent=None, on_box_selected=None):
         super().__init__(parent)
@@ -12813,6 +12873,12 @@ class MainDashboard(QMainWindow):
             current_active = self._cam_active_channels.get("FRONT", set()) | self._cam_active_channels.get("REAR", set())
 
             # Real-time 1:1 Operating LED Bar update on EVERY frame (clears immediately when no defect)
+            _lb = getattr(self, 'live_led_bar', None)
+            if _lb is not None:
+                if current_active:
+                    _lb.note(current_active)
+                else:
+                    _lb.note_none()
             if hasattr(self, 'operating_led_bar') and self.operating_led_bar:
                 self.operating_led_bar.set_active_channels(sorted(current_active))
 
@@ -12904,6 +12970,8 @@ class MainDashboard(QMainWindow):
 
     def start_sorting_sequence(self):
         self.reload_camera_configs()
+        if getattr(self, 'live_led_bar', None) is not None:
+            self.live_led_bar.reset()
         self.system_running = True
         print("[START] Sorting sequence initiated.")
         self._channel_active_frames = {"FRONT": {}, "REAR": {}}
@@ -14497,13 +14565,20 @@ class MainDashboard(QMainWindow):
 
     def setup_footer(self):
         footer = QWidget()
-        footer.setFixedHeight(150)
+        footer.setFixedHeight(176)          # 150 + live LED bar row (2 Nov 2026)
         footer_layout = QVBoxLayout(footer)
         footer_layout.setContentsMargins(20, 5, 20, 15)
         footer_layout.setSpacing(8)
         
-        # Upper LED Bar for live ejector statuses
-        
+        # Upper LED Bar for live ejector statuses (2 Nov 2026)
+        self.live_led_bar = LiveEjectorLEDBar(num_channels=63)
+        self.live_led_bar.setFixedHeight(34)
+        self.lbl_live_led = QLabel("FIRING NOW: 0 ch   |   since START: 0 blasts")
+        self.lbl_live_led.setStyleSheet("color: #ff8a80; font-size: 11px; font-weight: bold;")
+        self.live_led_bar.on_summary = self.lbl_live_led.setText
+        footer_layout.addWidget(self.live_led_bar)
+        footer_layout.addWidget(self.lbl_live_led)
+
         # Lower Buttons Layout
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(15)
