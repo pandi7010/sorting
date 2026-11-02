@@ -3109,11 +3109,20 @@ class InteractiveHSVLabel(QLabel):
         lbl_h = max(1, self.height())
         scale_x = self.orig_w / float(lbl_w)
         scale_y = self.orig_h / float(lbl_h)
+        off_x = off_y = 0.0
+        pm = self.pixmap() if features.enabled("hsv_box_fix_enabled") else None
+        if pm is not None and not pm.isNull() and pm.width() > 0 and pm.height() > 0:
+            # 2 Nov 2026 (switch hsv_box_fix_enabled): the colour map is shown scaled with its aspect ratio
+            # and centred in the label - map mouse positions through the IMAGE, not the whole label
+            off_x = (lbl_w - pm.width()) / 2.0
+            off_y = (lbl_h - pm.height()) / 2.0
+            scale_x = self.orig_w / float(pm.width())
+            scale_y = self.orig_h / float(pm.height())
 
-        x1 = max(0, min(self.orig_w, int(self.start_pos.x() * scale_x)))
-        y1 = max(0, min(self.orig_h, int(self.start_pos.y() * scale_y)))
-        x2 = max(0, min(self.orig_w, int(self.current_pos.x() * scale_x)))
-        y2 = max(0, min(self.orig_h, int(self.current_pos.y() * scale_y)))
+        x1 = max(0, min(self.orig_w, int((self.start_pos.x() - off_x) * scale_x)))
+        y1 = max(0, min(self.orig_h, int((self.start_pos.y() - off_y) * scale_y)))
+        x2 = max(0, min(self.orig_w, int((self.current_pos.x() - off_x) * scale_x)))
+        y2 = max(0, min(self.orig_h, int((self.current_pos.y() - off_y) * scale_y)))
 
         if self.on_box_selected:
             self.on_box_selected(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2), final)
@@ -5917,6 +5926,8 @@ class ProgramManagerDialog(QDialog):
 
         schemes = ["GRAY A", "GRAY B", "SIZE: BIG", "SIZE: SHORT", "DISCOLOUR A", "DISCOLOUR B", "HSV COLOR",
                    "AI DETECTION"]
+        if features.enabled("background_graph_algo_enabled"):
+            schemes.append("BACKGROUND (GRAPH)")   # uses the Background Graph thresholds - no settings dialog
 
         cam_tab_configs = [
             ("BOTH", "🔗 BOTH (SAME)", "🔗 BOTH SIDES LINKED (SAME OPTIONS) — Setting defect algorithms or parameters here applies to BOTH Front & Rear cameras simultaneously."),
@@ -6204,6 +6215,15 @@ class ProgramManagerDialog(QDialog):
         self.save_and_load_recipe()
 
     def open_algo_settings(self, algo_name, cam):
+        if algo_name.startswith("BACKGROUND"):
+            # its settings ARE the Background Graph window (lower / upper / band, per camera): just select it
+            if cam == "BOTH":
+                for c in ("BOTH", "FRONT", "REAR"):
+                    if algo_name in self.algo_buttons.get(c, {}):
+                        self.algo_buttons[c][algo_name].setChecked(True)
+            elif algo_name in self.algo_buttons.get(cam, {}):
+                self.algo_buttons[cam][algo_name].setChecked(True)
+            return
         if algo_name == "IMAGE CAPTURE" or algo_name == "AI DETECTION":
             self.open_camera_tool()
             if cam == "BOTH":
@@ -12206,6 +12226,27 @@ class MainDashboard(QMainWindow):
         # 2 Nov 2026 (switch clean_channel_switch_enabled, OFF = old): a channel needs >= channel_min_px pixel
         # columns (like the Background Graph window), so 1 edge pixel left in the old channel no longer holds its valve
         _clean_sw = features.enabled("clean_channel_switch_enabled")
+        # 2 Nov 2026: BACKGROUND (GRAPH) algorithm = same thresholds as the Background Graph window
+        # (switch background_graph_algo_enabled); main-screen RUNTIME TUNING sliders really change the
+        # detection + SIZE measures the whole object width (switch runtime_sliders_enabled). Both OFF = old.
+        _bg_algo = features.enabled("background_graph_algo_enabled")
+        _sliders = features.enabled("runtime_sliders_enabled")
+        _thr = getattr(self, 'thresholds', {}) or {}
+
+        def _graph_mask():
+            """2D bool: pixels outside (or, in BAND mode, inside) the Background Graph thresholds of this camera,
+            on the colour planes of the graph's wave mode - exactly what the Background Graph window checks."""
+            ct = (self.bg_settings.get("camera_thresh", {}) or {}).get(source, {})
+            lo = float(ct.get("lower", self.bg_settings.get("thresh_lower", 68)))
+            hi = float(ct.get("upper", self.bg_settings.get("thresh_upper", 221)))
+            band = bool(ct.get("band_mode", self.bg_settings.get("band_mode", False)))
+            wm = str(self.bg_settings.get("wave_mode", camera_configs.get("wave_mode", "BLUE")))
+            planes = [pl for key, pl in (("BLUE", 0), ("GREEN", 1), ("RED", 2)) if key in wm or "ALL" in wm] or [0]
+            mk = np.zeros(frame.shape[:2], dtype=bool)
+            for pl in planes:
+                v = frame[:, :, pl]
+                mk |= ((v > lo) & (v < hi)) if band else ((v < lo) | (v > hi))
+            return mk
         try:
             _ch_min_px = max(1, int(features.value("channel_min_px", 2)))
         except Exception:
@@ -12256,6 +12297,63 @@ class MainDashboard(QMainWindow):
 
         for algo_name in active_algos:
             cfg = algo_settings.get(algo_name, {})
+            if _sliders:
+                cfg = dict(cfg)
+                try:
+                    if "HSV" in algo_name or "DISCOLOUR" in algo_name:
+                        cfg["sens"] = float(_thr.get("HSV", cfg.get("sens", 100)))
+                    elif "GRAY B" in algo_name:
+                        cfg["abs_thresh"] = int(_thr.get("GRAY_THRESH", 128))
+                    elif "GRAY" in algo_name:
+                        cfg["sens"] = float(_thr.get("GRAY_CONTRAST", cfg.get("sens", 50)))
+                except Exception:
+                    pass
+
+            if _bg_algo and "BACKGROUND" in algo_name:
+                _gm = _graph_mask()
+                if _track_rows:
+                    _row_mask = _gm if _row_mask is None else (_row_mask | _gm)
+                _map_to_channels(np.any(_gm, axis=0), algo_name, "BACKGROUND", min_px=2, area_mask=_gm)
+                continue
+
+            if _sliders and "SIZE" in algo_name:
+                # whole-object width: an object is a run of neighbouring pixel columns that differ from the
+                # background (graph thresholds); its width is measured across channel borders (old code counted
+                # pixels inside ONE channel only, max ~64, so a bigger SIZE value could never match)
+                try:
+                    big_px = max(2, int(float(_thr.get("SIZE", 90))))
+                except Exception:
+                    big_px = 90
+                try:
+                    small_px = max(1, int(int(cfg.get("small", 1000)) / 50.0))
+                except Exception:
+                    small_px = 20
+                _gm = _graph_mask()
+                if _track_rows:
+                    _row_mask = _gm if _row_mask is None else (_row_mask | _gm)
+                col = np.any(_gm, axis=0)
+                col[:start_pixel] = False
+                col[end_pixel:] = False
+                padded = np.concatenate(([False], col, [False])).astype(np.int8)
+                edges = np.diff(padded)
+                run_s = np.where(edges == 1)[0]
+                run_e = np.where(edges == -1)[0]
+                want_small = ("SHORT" in algo_name or "SMALL" in algo_name)
+                ch_w = float(end_pixel - start_pixel) / float(num_channels)
+                for rs, re_ in zip(run_s, run_e):
+                    w = int(re_ - rs)
+                    if w < 2:
+                        continue                           # 1-column specks are noise
+                    hit = (w <= small_px) if want_small else (w >= big_px)
+                    if not hit:
+                        continue
+                    c0 = int((rs - start_pixel) / ch_w)
+                    c1 = int((re_ - 1 - start_pixel) / ch_w)
+                    for ch_i in range(max(0, c0), min(num_channels - 1, c1) + 1):
+                        results_by_channel[ch_i].append({"enabled": True, "detected": True, "algo": algo_name,
+                                                         "class": "SMALL" if want_small else "BIG",
+                                                         "channel": ch_i + 1, "width_px": w})
+                continue
             
             # --- GRAY ALGORITHM LOGIC ---
             if "GRAY" in algo_name:
@@ -12291,6 +12389,8 @@ class MainDashboard(QMainWindow):
                         # Dual Condition Detection:
                         # Condition 1: Absolute threshold (pixel is darker than calibrated threshold line)
                         eff_thresh = max(10, min(240, int(t_lower + ((sens - 50.0) * 0.4))))
+                        if "abs_thresh" in cfg:
+                            eff_thresh = max(1, min(254, int(cfg["abs_thresh"])))     # GRAY B: THRESHOLD slider
                         abs_mask = (plane < eff_thresh)
 
                         # Condition 2: Relative drop from background (wire / thin defect detection)
@@ -12305,6 +12405,8 @@ class MainDashboard(QMainWindow):
                         rel_mask = (plane < (avg_bg - sensitivity_drop))
 
                         raw_def_mask = abs_mask | rel_mask
+                        if "abs_thresh" in cfg:
+                            raw_def_mask = (plane < eff_thresh)   # GRAY B: THRESHOLD = absolute threshold only
                     else:
                         # LIGHT DEFECT mode:
                         t_upper = 221
@@ -12313,6 +12415,8 @@ class MainDashboard(QMainWindow):
                         elif "thresh_upper" in self.bg_settings:
                             t_upper = self.bg_settings.get("thresh_upper", 221)
                         light_thresh = min(252, int(t_upper - ((sens - 50.0) * 0.4)))
+                        if "abs_thresh" in cfg:
+                            light_thresh = max(1, min(254, int(cfg["abs_thresh"])))   # GRAY B: THRESHOLD slider
                         raw_def_mask = (plane > light_thresh)
 
                 if _track_rows:
@@ -12464,7 +12568,13 @@ class MainDashboard(QMainWindow):
                                 print(f"[AI] DEEP LEARNING (YOLO) not available - {self._ai_load_error}")
                         
                         if getattr(self, '_live_yolo_model', None):
-                            results = self._live_yolo_model.predict(dl_img, conf=0.5, verbose=False)
+                            _conf = 0.5
+                            if _sliders:
+                                try:
+                                    _conf = max(0.01, min(0.99, float(_thr.get("DEEP_LEARNING", 50)) / 100.0))
+                                except Exception:
+                                    _conf = 0.5
+                            results = self._live_yolo_model.predict(dl_img, conf=_conf, verbose=False)
                             for r in results:
                                 for box in r.boxes:
                                     x1, y1, x2, y2 = box.xyxy[0].tolist()

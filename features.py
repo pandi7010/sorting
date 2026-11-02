@@ -21,6 +21,13 @@ until you switch something on in  features_config.json  (restart the program aft
       "clean_channel_switch_enabled": false  a channel needs >= channel_min_px pixel columns (as in the
                                            Background Graph window); old channel OFF + new channel ON in one write
       "channel_min_px": 2
+      "background_graph_algo_enabled": false  adds algorithm BACKGROUND (GRAPH): rejects what the Background
+                                           Graph window shows (lower/upper/band per camera, wave mode)
+      "runtime_sliders_enabled": false     main-screen sliders override: HSV SENSITIVITY -> HSV/DISCOLOUR sens,
+                                           GRAY A: CONTRAST -> GRAY A sens, GRAY B: THRESHOLD -> GRAY B absolute
+                                           threshold, SIZE (PIXELS) -> whole-object width for SIZE: BIG,
+                                           AI THRESHOLD -> YOLO confidence
+      "hsv_box_fix_enabled": false         HSV colour box selection maps through the shown image
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -45,6 +52,9 @@ DEFAULTS = {
     "min_defect_area_px": 4,               # used by detection_fixes_enabled: defect pixels needed per channel
     "clean_channel_switch_enabled": False, # 2 Nov 2026: >= channel_min_px columns per channel; OFF+ON in one write
     "channel_min_px": 2,                   # used by clean_channel_switch_enabled (Background Graph uses 2)
+    "background_graph_algo_enabled": False,# 2 Nov 2026: algorithm BACKGROUND (GRAPH) = Background Graph thresholds
+    "runtime_sliders_enabled": False,      # 2 Nov 2026: RUNTIME TUNING sliders change detection; SIZE = object width
+    "hsv_box_fix_enabled": False,          # 2 Nov 2026: HSV colour box = what you see on the colour map
     "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
 }
 

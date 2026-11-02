@@ -108,3 +108,35 @@ Test: `python tools\test_detection_fixes_sim.py` ALL TESTS PASSED nu varanum. (O
 **Innum oru kaaranam (calibration):** FRONT and REAR camera rendum ore needle position ku ore channel sollanum. REAR-oda START/END pixel FRONT oda match aagaatti, REAR innum "ch1" nu sollum varaikkum ch1 ON laye nikkum. Check panra murai: needle ah oru channel boundary la vechu, Background Graph la FRONT view um REAR view um ore channel number kaattudha nu paarunga. Illa na REAR START/END ah nudge pannunga.
 
 Test: `python tools\test_channel_switch_sim.py`
+
+---
+
+# "Ellaam adikkanum" test ku: 3 pudhu switches (default false)
+
+**Netru silathu mattum ON aanadhukku kaaranam:** RICE program la `SIZE: BIG` irundhuchu. Adhu **dark** objects ah mattum dhaan paakkum, adhuvum oru channel kulla ~3.8 mm akalam irundhaa mattum. Oru rice grain ~2.5 mm, so grains overlap aana idathula mattum ON aachu. HSV default box orange/yellow ah mattum pidikkum, vellai rice ah illa.
+
+**1. `background_graph_algo_enabled`** → Program Manager la **BACKGROUND (GRAPH)** nu pudhu algorithm varum.
+- Background Graph window la set panna **lower / upper / band** values ah dhaan use pannum (FRONT, REAR thani thani).
+- **Graph la light aagura ellaam sorting la um adikkum.** "Ellaam adikkanum" test ku idhu dhaan correct.
+- Settings dialog illa, click panninaa select aagidum.
+
+**2. `runtime_sliders_enabled`** → main screen **RUNTIME TUNING** sliders ippo nijamaave velai seiyum.
+
+| Slider | Enna maathum |
+|---|---|
+| HSV SENSITIVITY | HSV / DISCOLOUR sensitivity |
+| GRAY A: CONTRAST | GRAY A sensitivity |
+| GRAY B: THRESHOLD | GRAY B ku absolute threshold (0–255) |
+| SIZE (PIXELS) | SIZE: BIG: **full object width** pixels la (1 mm ≈ 12 px). Channels thaandi alakkum, bright um dark um |
+| AI THRESHOLD | AI confidence |
+
+Switch ON la sliders, algorithm settings ah override pannum. AI PURITY, CHROME RATIO innum edhuvum pannaadhu.
+
+**3. `hsv_box_fix_enabled`** → HSV colour map la neenga box podra idam dhaan save aagum (pazhaya code ~35 px shift aachu).
+
+**Test procedure:**
+1. `features_config.json` la `"background_graph_algo_enabled": true`, restart.
+2. Program Manager → RICE → matha algorithms ah remove pannunga, **BACKGROUND (GRAPH)** mattum select pannunga, save.
+3. Feeder ah **kammiyaana speed** la ON pannunga (air pressure ku). Rice vizhura ellaa channels um ON aaganum, kaali channels off ah irukkanum.
+
+Test: `python tools\test_algo_fixes_sim.py`
