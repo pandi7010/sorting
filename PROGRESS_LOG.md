@@ -2,6 +2,17 @@
 
 ---
 
+## 2 Nov 2026 (evening 2) - PULSE renamed DWELL; DELAY / DWELL checked (`tools/test_delay_dwell_sim.py`)
+
+- Labels only (recipe key stays `"pulse"`): EJECTORS dialog "DWELL (ms)", Background Graph "DWELL (ms)" (was BLOW),
+  algorithm dialog firing test "Dwell (ms)", save message "Delay / Dwell". EJECTORS dialog now shows
+  "TIMED EJECT: ON/OFF" because the sorter uses DELAY / DWELL only with `capture_timed_eject_enabled`.
+- Test with the REAL recipe reader (`get_ejector_config`, recipes kept in memory) + timed path: DELAY 15/22/40/60 ->
+  ON at line time + DELAY (error <= 0.13 ms); DWELL 2/3/5/10 -> open = grain + DWELL; DELAY changed while sorting is
+  used on the next grain (0.5 s re-read, no restart); DELAY 2 ms -> counted LATE (camera -> PC ~4 ms); DWELL 0 -> 1 ms.
+- Dev-PC recipes have DELAY 2 / DWELL 10 for every scheme: too small a DELAY for timed mode - set ~22 ms before turning it on.
+  Simulation only.
+
 ## 2 Nov 2026 (evening) - Program Settings cross-check (`tools/test_program_settings_audit.py`)
 
 Every PROGRAM SETTINGS algorithm was run through the REAL `process_frame_for_defects` with the machine's settings

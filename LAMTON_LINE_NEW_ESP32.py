@@ -3941,7 +3941,7 @@ class DefectSimulationDialog(QDialog):
         hw_lay.setSpacing(8)
 
         pulse_row = QHBoxLayout()
-        pulse_row.addWidget(QLabel("Pulse Width (ms):"))
+        pulse_row.addWidget(QLabel("Dwell (ms):"))
         self.spin_pulse = QDoubleSpinBox()
         self.spin_pulse.setRange(0.1, 100.0)
         self.spin_pulse.setSingleStep(0.1)
@@ -4791,7 +4791,7 @@ class DefectSimulationDialog(QDialog):
 
         def _do_fire():
             esp.fire_ejector_channels(sorted_channels, pulse_ms)
-            self.lbl_fire_status.setText(f"⚡ Fired Channels: {sorted_channels} (Pulse: {pulse_ms}ms)")
+            self.lbl_fire_status.setText(f"⚡ Fired Channels: {sorted_channels} (Dwell: {pulse_ms}ms)")
             self.lbl_fire_status.setStyleSheet("color: #00e676; font-weight: bold;")
 
         if delay_sec > 0:
@@ -8185,7 +8185,7 @@ class EjectorTestWindow(QDialog):
         self.btn_count.clicked.connect(lambda: Keypad(self.btn_count.text(), lambda v: self.btn_count.setText(str(float(v))) if v.replace('.','',1).isdigit() else None, self).exec_())
 
         lbl_style = "font-size: 13px; font-weight: bold;"
-        lbl1 = QLabel("PULSE (ms):"); lbl1.setStyleSheet(lbl_style)
+        lbl1 = QLabel("DWELL (ms):"); lbl1.setStyleSheet(lbl_style)     # DWELL = how long the valve stays open (key "pulse")
         lbl2 = QLabel("DELAY (ms):"); lbl2.setStyleSheet(lbl_style)
         lbl3 = QLabel("PULSE GAP (ms):"); lbl3.setStyleSheet(lbl_style)
         lbl4 = QLabel("REPEAT COUNT:"); lbl4.setStyleSheet(lbl_style)
@@ -8194,6 +8194,12 @@ class EjectorTestWindow(QDialog):
         t_layout.addRow(lbl2, self.btn_delay)
         t_layout.addRow(lbl3, self.btn_gap)
         t_layout.addRow(lbl4, self.btn_count)
+        # 2 Nov 2026: DELAY / DWELL are used by the sorter only with capture_timed_eject_enabled - say so here
+        _tm_on = features.enabled("capture_timed_eject_enabled")
+        lbl_tm = QLabel("TIMED EJECT: ON - sorting uses DELAY + DWELL" if _tm_on else
+                        "TIMED EJECT: OFF - sorting ignores DELAY / DWELL\n(features_config.json: capture_timed_eject_enabled)")
+        lbl_tm.setStyleSheet("font-size: 11px; font-weight: bold; color: %s;" % ("#00e676" if _tm_on else "#ff9800"))
+        t_layout.addRow(lbl_tm)
         
         btn_save_timing = QPushButton("💾 SAVE SETTINGS")
         btn_save_timing.setFixedHeight(38)
@@ -8383,7 +8389,7 @@ class EjectorTestWindow(QDialog):
                         w.program_data[self.scheme_name]["ejector"] = cfg
             with open(self.ejector_cfg_path, "w") as f:
                 json.dump(cfg, f, indent=4)
-            QMessageBox.information(self, "Saved", f"Settings Saved Successfully!\nPulse: {pulse} ms | Delay: {delay} ms")
+            QMessageBox.information(self, "Saved", f"Settings Saved Successfully!\nDelay: {delay} ms | Dwell: {pulse} ms")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not save: {e}")
 
@@ -10596,7 +10602,7 @@ class BackgroundGraphWindow(QDialog):
             lambda: Keypad(self.btn_delay_val.text(), self.set_delay_manual, self).exec_())
         h3.addWidget(self.btn_delay_val)
         h3.addSpacing(20)
-        h3.addWidget(QLabel("BLOW (ms):"))
+        h3.addWidget(QLabel("DWELL (ms):"))
         self.btn_blow_val = QPushButton(f"{float(self.eject_blow_ms):g}")
         self.btn_blow_val.setFixedSize(60, 35)
         self.btn_blow_val.setAutoDefault(False)

@@ -158,3 +158,15 @@ Program Settings la set panra ovvoru algorithm um real sorting code la check pan
 Example: HSV SORT IN = "indha colour nalladhu, matha ellaam reject". Pazhaya code background um "matha colour" nu nenachu 63 valve um open pannum. Switch ON la, **product pixel** (graph LO/HI thaandura pixel) mattum dhaan paakkum.
 
 ON panna: `features_config.json` la `"program_settings_fix_enabled": true`, restart.
+
+# DELAY / DWELL (2 Nov 2026)
+
+- **PULSE ippo DWELL nu kaattum.** DWELL = valve evvalavu neram open ah irukkum. EJECTORS dialog, Background Graph window (pazhaya BLOW), Algorithm dialog firing test: moonu idathulayum DWELL. (`recipes.json` la key innum `"pulse"` dhaan, pazhaya recipes apdiye work aagum.)
+- Program Settings → EJECTORS → DELAY / DWELL → SAVE: sorting **restart illaama 0.5 s kulla** use aagum.
+- Aana **`capture_timed_eject_enabled: true` irundhaa mattum dhaan**. OFF la sorter DELAY / DWELL ah use pannaadhu. Dialog la ippo "TIMED EJECT: ON / OFF" nu kaattum.
+- Valve open aagura neram = grain camera line la paatha neram + **DELAY**. Valve open ah irukkura neram = grain neelam + **DWELL** (kuraincha pakkam 1 ms).
+- Example: DELAY 22, DWELL 3, grain 8 lines (0.9 ms) → grain paatha 22 ms kazhichu valve open, 3.9 ms open ah irukkum.
+- DELAY romba kammi (2 ms maadhiri) na camera → PC ku ~4 ms aagum, so valve late ah dhaan open aagum. Console la LATE count varum. DELAY ah 15 ms ku mela vechu start pannunga (nozzle 70–80 mm na ~22 ms).
+- Background Graph window la irukkura DELAY / DWELL andha window oda test firing ku mattum. Sorting ku EJECTORS dialog la set pannunga.
+
+Test: `python tools\test_delay_dwell_sim.py` (DELAY 15/22/40/60, DWELL 2/3/5/10, sorting nadakkum podhe DELAY maathuradhu, DELAY 2 → LATE, DWELL 0 → 1 ms). Simulation la ellam ±0.6 ms kulla correct. Real valve la innum test pannanum.
