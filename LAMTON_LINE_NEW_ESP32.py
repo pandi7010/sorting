@@ -14266,6 +14266,10 @@ class MainDashboard(QMainWindow):
         RecipeManager.set_active_scheme_name(scheme_name)
         if hasattr(self, 'lbl_current_prog_bar'):
             self.lbl_current_prog_bar.setText(scheme_name)
+        try:
+            self._dd_refresh()              # main-screen DELAY / DWELL show this scheme's values
+        except Exception:
+            pass
 
         scheme = RecipeManager.get_scheme(scheme_name)
         if not scheme or not isinstance(scheme, dict):
@@ -14676,9 +14680,99 @@ class MainDashboard(QMainWindow):
         except Exception as e:
             print(f"Error minimizing: {e}")
 
+    # ------------------------------------------------------------------ 3 Nov 2026: DELAY / DWELL on the main screen
+    # Switch main_delay_dwell_controls (ON by the user's decision). Same values as Program Settings -> EJECTORS
+    # (recipe "ejector": delay / pulse). Every change is saved at once to recipes.json (+ ejector_config.json);
+    # the timed ejection re-reads them within 0.5 s. They are only USED when capture_timed_eject_enabled is true.
+    def _build_delay_dwell_row(self):
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        lbl_css = "color: #b0bec5; font-size: 13px; font-weight: bold;"
+        val_css = ("background: #1e272e; border: 1px solid %s; color: %s; font-size: 16px; font-weight: bold;"
+                   " border-radius: 4px;")
+        pm_css = ("background: #37474f; color: white; font-size: 18px; font-weight: bold; border-radius: 4px;")
+        self._dd_btn = {}
+        for key, title, color, step in (("delay", "DELAY (ms):", "#00e5ff", 1.0), ("pulse", "DWELL (ms):", "#ffeb3b", 0.5)):
+            lab = QLabel(title)
+            lab.setStyleSheet(lbl_css)
+            minus = QPushButton("-")
+            plus = QPushButton("+")
+            val = QPushButton("0")
+            for b in (minus, plus):
+                b.setFixedSize(38, 34)
+                b.setStyleSheet(pm_css)
+            val.setFixedSize(90, 34)
+            val.setStyleSheet(val_css % (color, color))
+            minus.clicked.connect(lambda _, k=key, s=step: self._dd_step(k, -s))
+            plus.clicked.connect(lambda _, k=key, s=step: self._dd_step(k, s))
+            val.clicked.connect(lambda _, k=key: self._dd_keypad(k))
+            self._dd_btn[key] = val
+            row.addWidget(lab)
+            row.addWidget(minus)
+            row.addWidget(val)
+            row.addWidget(plus)
+            row.addSpacing(18)
+        self.lbl_dd_state = QLabel("")
+        self.lbl_dd_state.setStyleSheet("font-size: 12px; font-weight: bold;")
+        row.addWidget(self.lbl_dd_state)
+        row.addStretch()
+        self._dd_refresh()
+        return row
+
+    def _dd_values(self):
+        scheme = RecipeManager.get_scheme(getattr(self, 'current_program', 'RICE')) or {}
+        ej = dict(scheme.get("ejector", {}) or {}) if isinstance(scheme, dict) else {}
+        return ej
+
+    def _dd_refresh(self):
+        if not hasattr(self, '_dd_btn'):
+            return
+        ej = self._dd_values()
+        self._dd_btn["delay"].setText(f"{float(ej.get('delay', 100.0)):g}")
+        self._dd_btn["pulse"].setText(f"{float(ej.get('pulse', 20.0)):g}")
+        on = features.enabled("capture_timed_eject_enabled")
+        self.lbl_dd_state.setText(f"{getattr(self, 'current_program', '')}  |  auto-saved  |  " +
+                                  ("TIMED EJECT: ON - used" if on else "TIMED EJECT: OFF - not used yet"))
+        self.lbl_dd_state.setStyleSheet("font-size: 12px; font-weight: bold; color: %s;" % ("#00e676" if on else "#ff9800"))
+
+    def _dd_set(self, key, value):
+        try:
+            value = float(value)
+        except Exception:
+            return
+        lim = (0.0, 500.0) if key == "delay" else (0.0, 200.0)
+        value = round(max(lim[0], min(lim[1], value)) * 2) / 2          # steps of 0.5 ms
+        prog = getattr(self, 'current_program', 'RICE')
+        ej = self._dd_values()
+        ej[key] = value
+        ej.setdefault("delay", 100.0)
+        ej.setdefault("pulse", 20.0)
+        try:
+            RecipeManager.update_scheme_field(prog, "ejector", ej)
+            if isinstance(getattr(self, 'program_data', None), dict) and isinstance(self.program_data.get(prog), dict):
+                self.program_data[prog]["ejector"] = dict(ej)
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ejector_config.json"), "w") as f:
+                json.dump(ej, f, indent=4)
+        except Exception as e:
+            print(f"[DELAY/DWELL] save failed: {e}")
+        self._timed_cfg_t = 0.0             # timed ejection re-reads the recipe on the next frame
+        self._dd_refresh()
+
+    def _dd_step(self, key, delta):
+        try:
+            cur = float(self._dd_btn[key].text())
+        except Exception:
+            cur = 0.0
+        self._dd_set(key, cur + delta)
+
+    def _dd_keypad(self, key):
+        cur = self._dd_btn[key].text()
+        Keypad(cur, lambda v, k=key: self._dd_set(k, v) if str(v).replace('.', '', 1).isdigit() else None, self).exec_()
+
     def setup_footer(self):
         footer = QWidget()
-        footer.setFixedHeight(176)          # 150 + live LED bar row (2 Nov 2026)
+        _dd_on = features.enabled("main_delay_dwell_controls")
+        footer.setFixedHeight(218 if _dd_on else 176)   # 150 + live LED bar row (2 Nov) + DELAY/DWELL row (3 Nov)
         footer_layout = QVBoxLayout(footer)
         footer_layout.setContentsMargins(20, 5, 20, 15)
         footer_layout.setSpacing(8)
@@ -14692,6 +14786,8 @@ class MainDashboard(QMainWindow):
         self.live_led_bar.stats_fn = self._cam_load_text
         footer_layout.addWidget(self.live_led_bar)
         footer_layout.addWidget(self.lbl_live_led)
+        if _dd_on:
+            footer_layout.addLayout(self._build_delay_dwell_row())
 
         # Lower Buttons Layout
         btn_layout = QHBoxLayout()

@@ -2,6 +2,20 @@
 
 ---
 
+## 3 Nov 2026 - main-screen DELAY / DWELL row; machine detection modes set over AnyDesk
+
+- New row above START SYSTEM (switch `main_delay_dwell_controls`, ON by the user's decision): DELAY / DWELL with -/+ and
+  keypad, auto-saved to the current recipe `ejector` (+ program_data + ejector_config.json), shows TIMED EJECT ON/OFF
+  (values are only used with `capture_timed_eject_enabled`). Profile change refreshes the values. Test
+  `tools/test_delay_dwell_main_ui.py`; real main window built offscreen on the dev PC (row present, values 2 / 10).
+- Main-screen object counter ("N objects, M blasts") for detection-rate tests (drop objects one by one).
+- Machine (set over AnyDesk in the Background / Graph window): background is bright BLUE (~95-150), green ~25-50,
+  red ~20-35; a white object DIPS in blue (~65) and rises a little in green (~55) - the front light is weak, so white
+  is not "bright". Modes used: all objects = GREEN HI 75/65, LO 10/15; black only = GREEN HI 255, LO 10/15;
+  white only (current) = FRONT BLUE BAND 45-80, REAR off (HI 255 / LO 0). GREEN band 50-90 fired ch 3-6 nonstop in
+  the 64-line main path (background hump ~48-50) - do not use. Real fix for colour sorting: brighter front light,
+  less/neutral background, balanced gains.
+
 ## 2 Nov 2026 (evening 3) - LED bar tail vs real valve; CAM LOAD readout
 
 - User: moving a wire left/right leaves a long "tail" of lit channels (seen on AnyDesk: 11-16 channels lit for one wire).

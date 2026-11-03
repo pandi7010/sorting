@@ -15,5 +15,6 @@
     "hsv_box_fix_enabled": false,
     "program_settings_fix_enabled": false,
     "continuous_capture_button": false,
+    "main_delay_dwell_controls": true,
     "ejector_test_panel_button": true
 }

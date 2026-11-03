@@ -189,3 +189,13 @@ Main screen LED line la ippo: `since START: N objects, M blasts`.
 3. `objects` 50 kitta varanum. 45 na 90 %, 48 na 96 %.
 4. Ore neram rendu objects vizhundhaa (pakkathula), adhu 1 object nu count aagum. So onnu onnu ah dhaan podanum.
 5. Reject bin la evvalavu vizhundhuchu nu um enni paarunga. Idhu detection + timing (valve) rendum serndha unmaiyaana result.
+
+# Main screen la DELAY / DWELL (3 Nov 2026)
+
+START SYSTEM button ku mela: `DELAY (ms): [-] [22] [+]    DWELL (ms): [-] [3] [+]    RICE | auto-saved | TIMED EJECT: OFF`
+- **[-] / [+]:** DELAY 1 ms step, DWELL 0.5 ms step.
+- **Number mela click** pannaa keypad varum.
+- **Auto-save:** maathina udane current profile recipe la (`recipes.json` → `ejector`) save aagum. EJECTORS dialog la um adhe values dhaan theriyum. SAVE button theva illa.
+- Profile maathinaa (RICE → DHALL), andha profile oda values kaattum.
+- **TIMED EJECT: OFF** nu orange la irundha, sorter innum DELAY / DWELL ah use pannaadhu. `capture_timed_eject_enabled: true` pannaa dhaan use aagum (green ah "ON - used" nu varum).
+- Switch: `main_delay_dwell_controls` (default true, user ketta maadhiri). Test: `python tools\test_delay_dwell_main_ui.py`
