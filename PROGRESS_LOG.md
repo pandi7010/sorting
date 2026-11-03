@@ -8,6 +8,9 @@
   keypad, auto-saved to the current recipe `ejector` (+ program_data + ejector_config.json), shows TIMED EJECT ON/OFF
   (values are only used with `capture_timed_eject_enabled`). Profile change refreshes the values. Test
   `tools/test_delay_dwell_main_ui.py`; real main window built offscreen on the dev PC (row present, values 2 / 10).
+- EJECTORS window (user's decision): REPEAT COUNT removed from the screen (no code used it; saved value kept);
+  PULSE GAP shown as "TEST GAP (ms)" above the test buttons (only MANUAL FIRE / AUTO SEQ use it). Window built
+  offscreen on the dev PC: OK.
 - Main-screen object counter ("N objects, M blasts") for detection-rate tests (drop objects one by one).
 - Machine (set over AnyDesk in the Background / Graph window): background is bright BLUE (~95-150), green ~25-50,
   red ~20-35; a white object DIPS in blue (~65) and rises a little in green (~55) - the front light is weak, so white

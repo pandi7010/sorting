@@ -8227,13 +8227,12 @@ class EjectorTestWindow(QDialog):
         lbl_style = "font-size: 13px; font-weight: bold;"
         lbl1 = QLabel("DWELL (ms):"); lbl1.setStyleSheet(lbl_style)     # DWELL = how long the valve stays open (key "pulse")
         lbl2 = QLabel("DELAY (ms):"); lbl2.setStyleSheet(lbl_style)
-        lbl3 = QLabel("PULSE GAP (ms):"); lbl3.setStyleSheet(lbl_style)
-        lbl4 = QLabel("REPEAT COUNT:"); lbl4.setStyleSheet(lbl_style)
+        # 3 Nov 2026 (user's decision): REPEAT COUNT removed from the screen (nothing used it; the saved value is kept);
+        # PULSE GAP is only for the MANUAL FIRE / AUTO SEQ tests -> shown as "TEST GAP (ms)" in CONTROL & DIAGNOSTICS.
+        self.btn_count.hide()
 
         t_layout.addRow(lbl1, self.btn_pulse)
         t_layout.addRow(lbl2, self.btn_delay)
-        t_layout.addRow(lbl3, self.btn_gap)
-        t_layout.addRow(lbl4, self.btn_count)
         # 2 Nov 2026: DELAY / DWELL are used by the sorter only with capture_timed_eject_enabled - say so here
         _tm_on = features.enabled("capture_timed_eject_enabled")
         lbl_tm = QLabel("TIMED EJECT: ON - sorting uses DELAY + DWELL" if _tm_on else
@@ -8254,6 +8253,18 @@ class EjectorTestWindow(QDialog):
         action_layout = QVBoxLayout(action_grp)
         action_layout.setSpacing(12)
         action_layout.setContentsMargins(15, 15, 15, 15)
+
+        row_gap = QHBoxLayout()
+        lbl_gap = QLabel("TEST GAP (ms):")
+        lbl_gap.setStyleSheet("font-size: 13px; font-weight: bold;")
+        self.btn_gap.setFixedWidth(110)
+        lbl_gap_hint = QLabel("time between blasts for MANUAL FIRE / AUTO SEQ (tests only, not sorting)")
+        lbl_gap_hint.setStyleSheet("font-size: 11px; color: #888;")
+        row_gap.addWidget(lbl_gap)
+        row_gap.addWidget(self.btn_gap)
+        row_gap.addWidget(lbl_gap_hint)
+        row_gap.addStretch()
+        action_layout.addLayout(row_gap)
 
         row_actions = QHBoxLayout()
         row_actions.setSpacing(12)
@@ -8429,7 +8440,7 @@ class EjectorTestWindow(QDialog):
                         w.program_data[self.scheme_name]["ejector"] = cfg
             with open(self.ejector_cfg_path, "w") as f:
                 json.dump(cfg, f, indent=4)
-            QMessageBox.information(self, "Saved", f"Settings Saved Successfully!\nDelay: {delay} ms | Dwell: {pulse} ms")
+            QMessageBox.information(self, "Saved", f"Settings Saved Successfully!\nDelay: {delay} ms | Dwell: {pulse} ms | Test gap: {gap} ms")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not save: {e}")
 
