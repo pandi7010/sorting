@@ -190,7 +190,7 @@ Each must end with **ALL TESTS PASSED**.
 
 1. Sorter program → Ejector test window. ✅ The second line shows the link: `BINARY fw 2.0 state ARMED | sent … ok …`.
 2. Move the slider. ✅ The label shows `CH n -> OUT … -> CHIP …, Q…`.
-3. (3 Nov 2026: REPEAT COUNT was removed from the EJECTORS window - no code ever used it. PULSE GAP is now "TEST GAP (ms)" next to the test buttons.)
+3. REPEAT COUNT = 5 → **SINGLE PULSE**. ✅ The valve fires 5 times.
 4. **AUTO SEQ (1-63)**. ✅ The slider follows the real valve (driven by the ESP32's own step reports).
 5. **STABLE WIRE TEST** works as before. HOLD now releases itself after 10 s at the latest.
 

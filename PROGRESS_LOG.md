@@ -8,6 +8,7 @@
   keypad, auto-saved to the current recipe `ejector` (+ program_data + ejector_config.json), shows TIMED EJECT ON/OFF
   (values are only used with `capture_timed_eject_enabled`). Profile change refreshes the values. Test
   `tools/test_delay_dwell_main_ui.py`; real main window built offscreen on the dev PC (row present, values 2 / 10).
+- 3 Nov 16:18: the EJECTORS-window change below was REVERTED on the user's request (back to b75049d: PULSE GAP and REPEAT COUNT shown again).
 - EJECTORS window (user's decision): REPEAT COUNT removed from the screen (no code used it; saved value kept);
   PULSE GAP shown as "TEST GAP (ms)" above the test buttons (only MANUAL FIRE / AUTO SEQ use it). Window built
   offscreen on the dev PC: OK.
