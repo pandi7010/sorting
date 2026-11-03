@@ -176,3 +176,16 @@ Test: `python tools\test_delay_dwell_sim.py` (DELAY 15/22/40/60, DWELL 2/3/5/10,
 - Wire ah vegama nagarthinaa LED bar la 10–16 channels "vaal" maadhiri lit aagi irundhuchu. Adhu **display hold** (0.15 s, kannukku theriyanum nu). Valve oda real close illa.
 - Ippo: **BRIGHT red = valve ippo ON**, **DIM (dark) red = 0.15 s kulla fire aachu, valve already close**. Text la "VALVES ON NOW: x ch (trail y)".
 - Pudhusa **CAM LOAD F a/b ms R c/d ms**: a = ovvoru frame kum PC edukkura neram, b = camera frame idaiveli (~7.2 ms). F + R b ku kitta poana frames queue aagum, appo valve open um close um late aagum. Appo "SLOW: frames queue -> valves late!" nu varum.
+
+# Detection % test: object counter (3 Nov 2026)
+
+Main screen LED line la ippo: `since START: N objects, M blasts`.
+- **objects** = chute kaali ah irundhu, apram edhaavadhu theriyum podhu +1. Oru object 2 channels la vizhundhaalum 1 object dhaan.
+- **blasts** = ovvoru channel layum valve open aana thadavai.
+
+**Test (90 % kku mela varudhaa):**
+1. START SYSTEM (counter 0 aagum). Feeder OFF.
+2. 50 objects (ex: 50 black rice) ah **onnu onnu ah**, 1 second idaiveli la, chute la podunga.
+3. `objects` 50 kitta varanum. 45 na 90 %, 48 na 96 %.
+4. Ore neram rendu objects vizhundhaa (pakkathula), adhu 1 object nu count aagum. So onnu onnu ah dhaan podanum.
+5. Reject bin la evvalavu vizhundhuchu nu um enni paarunga. Idhu detection + timing (valve) rendum serndha unmaiyaana result.

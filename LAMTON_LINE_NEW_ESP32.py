@@ -3093,6 +3093,7 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
         self._last_on = {}
         self._was_on = set()
         self.counts = {}
+        self.objects = 0                  # 3 Nov 2026: chute empty -> something seen = 1 object (drop objects one by one)
         self.on_summary = None            # callback(str) for a text label
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
@@ -3104,6 +3105,8 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
             return
         now = time.perf_counter()
         with self._lock:
+            if not self._was_on:
+                self.objects += 1                                     # chute was empty in the last frame
             for ch in channels:
                 if ch not in self._was_on:
                     self.counts[ch] = self.counts.get(ch, 0) + 1      # count rising edges (new blasts)
@@ -3119,6 +3122,7 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
             self._last_on.clear()
             self._was_on = set()
             self.counts.clear()
+            self.objects = 0
 
     def _refresh(self):
         now = time.perf_counter()
@@ -3127,13 +3131,14 @@ class LiveEjectorLEDBar(SimulationOperatingLEDBar):
             now_on = set(self._was_on)
             top = sorted(self.counts.items(), key=lambda kv: -kv[1])[:5]
             total = sum(self.counts.values())
+            n_obj = self.objects
         trail = recent - now_on
         if trail != self.trail_channels:
             self.trail_channels = trail
             self.update()
         self.set_active_channels(sorted(now_on))
         if self.on_summary:
-            txt = f"VALVES ON NOW: {len(now_on)} ch (trail {len(trail)})   |   since START: {total} blasts"
+            txt = f"VALVES ON NOW: {len(now_on)} ch (trail {len(trail)})   |   since START: {n_obj} objects, {total} blasts"
             if top:
                 txt += "   |   most: " + "  ".join(f"ch{c}x{n}" for c, n in top)
             if self.stats_fn:

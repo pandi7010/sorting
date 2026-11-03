@@ -63,6 +63,7 @@ bar._refresh()             # what the GUI timer does every 60 ms
 check("BRIGHT = valve ON now (last frame: ch 5)", bar.active_channels == {5}, str(bar.active_channels))
 check("DIM trail = fired recently, valve already closed (ch 63)", bar.trail_channels == {63}, str(bar.trail_channels))
 check("counts rising edges: ch5 = 2 blasts, ch63 = 1", bar.counts.get(5) == 2 and bar.counts.get(63) == 1, str(bar.counts))
+check("object counter: 2 objects (chute empty in between)", bar.objects == 2, str(bar.objects))
 check("summary text shows the most active channel", texts and "ch5x2" in texts[-1], texts[-1] if texts else "")
 time.sleep(0.6)
 bar._refresh()
