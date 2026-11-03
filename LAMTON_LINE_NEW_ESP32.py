@@ -12851,10 +12851,63 @@ class MainDashboard(QMainWindow):
             parts.append(f"{tag} {b:.1f}/{p:.1f} ms")
             tot += b
             per = p if per is None else min(per, p)
+        link_txt = getattr(self, '_link_state', "")
         if not parts:
-            return ""
+            return link_txt
         warn = "  SLOW: frames queue -> valves late!" if per and tot > 0.9 * per else ""
-        return "CAM LOAD " + "  ".join(parts) + warn
+        return "CAM LOAD " + "  ".join(parts) + warn + (("   |   " + link_txt) if link_txt else "")
+
+    # ------------------------------------------------------------------ 3 Nov 2026: ejector USB link watch
+    # The user saw: after 4-5 minutes the LED bar still shows detections but the valves stop. EjectorLink stops
+    # for good after ONE serial read error (mode = None -> is_open False) and the sorter then silently sends
+    # nothing. This timer shows the link state on the LED line (always) and, with switch ejector_auto_reconnect,
+    # reopens the same COM port in the background.
+    def _ejector_link_watch(self):
+        esp = getattr(self, 'esp32', None)
+        link = getattr(esp, 'ejector_link', None)
+        port = getattr(esp, 'ejector_port', None)
+        if link is None or not port:
+            self._link_state = ""
+            return
+        cnt = getattr(link, 'counters', {}) or {}
+        we, re_ = int(cnt.get("write_errors", 0)), int(cnt.get("read_errors", 0))
+        prev = getattr(self, '_link_err_prev', None)
+        self._link_err_prev = (id(link), we, re_)
+        new_err = prev is not None and prev[0] == id(link) and (we > prev[1] or re_ > prev[2])
+        lost_n = getattr(self, '_link_lost_n', 0)
+        if link.is_open and not new_err:
+            if getattr(self, '_link_bad_since', None) is not None:
+                print(f"[EJECTOR LINK] OK again on {port}")
+            self._link_bad_since = None
+            self._link_state = f"ESP32 OK{f' (link lost {lost_n}x)' if lost_n else ''}"
+            return
+        if getattr(self, '_link_bad_since', None) is None:
+            self._link_bad_since = time.time()
+            self._link_lost_n = lost_n + 1
+            last = list(getattr(link, 'text_lines', []))[-2:]
+            print(f"[EJECTOR LINK] LOST on {port} (write errors {we}, read errors {re_}) {last}")
+        self._link_state = f"ESP32 LINK LOST ({self._link_lost_n}x) - valves NOT driven!"
+        if not features.enabled("ejector_auto_reconnect") or getattr(self, '_link_reconnecting', False):
+            return
+        if time.time() - getattr(self, '_link_last_try', 0.0) < 3.0:
+            return
+        self._link_last_try = time.time()
+        self._link_reconnecting = True
+        self._link_state = f"ESP32 LINK LOST ({self._link_lost_n}x) - reconnecting {port}..."
+
+        def _worker():
+            try:
+                ok = esp.connect_ejector(port)
+                if ok:
+                    self._live_hw_active = set()      # the board starts with all valves off
+                    self._wd_armed_t = 0.0            # re-arm the esp.ino watchdog on the next frame
+                    self._link_err_prev = None
+                    print(f"[EJECTOR LINK] reconnected on {port}")
+            except Exception as exc:
+                print(f"[EJECTOR LINK] reconnect failed: {exc}")
+            finally:
+                self._link_reconnecting = False
+        threading.Thread(target=_worker, name="EjectorReconnect", daemon=True).start()
 
     def _capture_timed_fire(self, link, source, dec, frame_channels):
         """Switch capture_timed_eject_enabled (features_config.json). ESP_BYTE firmware (esp/esp.ino).
@@ -14784,6 +14837,9 @@ class MainDashboard(QMainWindow):
         self.lbl_live_led.setStyleSheet("color: #ff8a80; font-size: 11px; font-weight: bold;")
         self.live_led_bar.on_summary = self.lbl_live_led.setText
         self.live_led_bar.stats_fn = self._cam_load_text
+        self._link_watch_timer = QTimer(self)
+        self._link_watch_timer.timeout.connect(self._ejector_link_watch)
+        self._link_watch_timer.start(1000)
         footer_layout.addWidget(self.live_led_bar)
         footer_layout.addWidget(self.lbl_live_led)
         if _dd_on:

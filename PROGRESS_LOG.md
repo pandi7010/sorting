@@ -2,6 +2,16 @@
 
 ---
 
+## 3 Nov 2026 (evening 2) - valves stop after 4-5 min while the LED bar still shows detections
+
+- Cause found in ejector_link.py: `_reader` sets mode = None after ONE serial read error and exits; `is_open` is then
+  False forever and evaluate_fusion_and_fire silently stops writing (no reconnect, nothing on screen).
+- Change: a 1 s timer in the main window shows the link on the LED line (ESP32 OK / LINK LOST - valves NOT driven)
+  always; switch `ejector_auto_reconnect` (default OFF) reopens the same COM port in a background thread (every 3 s),
+  then resets the held-valve set and re-arms the esp.ino watchdog. Test `tools/test_ejector_link_watch_sim.py`.
+  test_delay_dwell_sim now counts valve edges (ON bytes are re-sent for the watchdog) and allows 0.5 ms jitter.
+- Still to check on the machine: is it the USB link (LINK LOST shown) or the board (OK shown, valves dead)?
+
 ## 3 Nov 2026 (evening) - timed mode: wire held in front of the camera chatters ("pat pat")
 
 - Machine: timed mode ON, DELAY 13 (nozzle 47 mm), DWELL 3, frame 64 lines / 12.5 ms. A held wire makes the valve

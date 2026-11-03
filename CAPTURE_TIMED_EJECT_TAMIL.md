@@ -206,3 +206,11 @@ START SYSTEM button ku mela: `DELAY (ms): [-] [22] [+]    DWELL (ms): [-] [3] [+
 - Fix (`capture_timing_config.json`: `"continue_margin_ms": 8`): object frame oda kadaisi line varaikkum irundha (adutha frame la um thodarum), valve ah adutha frame varra varaikkum (+8 ms) open ah vechirukkum. Wire / neela object = ore continuous blast. 0 = pazhaya maadhiri.
 - Innoru fix: neela blast la ESP32 250 ms watchdog valve ah off pannidum. Ippo ON byte ah 100 ms ku oru thadava thirumba anuppudhu.
 - Test: `python tools\test_timed_long_object_sim.py`
+
+# Valves 4–5 minutes kazhichu nikkudhu, LED bar la detect aagudhu (3 Nov 2026)
+
+- Kaaranam: ESP32 USB link la ore oru read error (USB glitch / valve noise) vandhaa, software link ah "closed" nu vechidum. Apram sorter valves ku edhuvum anuppaadhu, aana LED bar la detection theriyum. Thirumba connect aagaadhu.
+- Ippo LED line kadaisila: `ESP32 OK` / `ESP32 OK (link lost 2x)` / **`ESP32 LINK LOST - valves NOT driven!`** nu eppovum kaattum.
+- Switch `"ejector_auto_reconnect": true` → link poana, adhe COM port ah background la thirumba open pannum (3 s ku oru try). Console la `[EJECTOR LINK] LOST` / `reconnected` varum.
+- LED line "ESP32 OK" nu kaattiyum valves adikkala na → ESP32 board pakkam (power drop, reset, noise): board LED, USB cable (short + ferrite), 24 V GND separate ah check pannunga.
+- Test: `python tools\test_ejector_link_watch_sim.py`
