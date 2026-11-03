@@ -2,6 +2,16 @@
 
 ---
 
+## 3 Nov 2026 (evening) - timed mode: wire held in front of the camera chatters ("pat pat")
+
+- Machine: timed mode ON, DELAY 13 (nozzle 47 mm), DWELL 3, frame 64 lines / 12.5 ms. A held wire makes the valve
+  chatter at the frame rate. Cause (reproduced in simulation): the whole frame is late (DELAY 13 < frame 12.5 ms +
+  4-9 ms transfer/processing), so every blast starts "now" and ends before the next frame reaches the PC -> OFF/ON
+  each frame. Second bug: a merged long blast sent ON only once, so the esp.ino 250 ms watchdog would close it.
+- Fix in capture_timing.py: (1) `continue_margin_ms` (8): an object that touches the last row keeps the valve open
+  until the next frame can arrive (next blast merges); (2) the scheduler re-sends ON for open channels every 100 ms.
+  Test `tools/test_timed_long_object_sim.py` (+ updated test_capture_timing_sim). Simulation only.
+
 ## 3 Nov 2026 - main-screen DELAY / DWELL row; machine detection modes set over AnyDesk
 
 - New row above START SYSTEM (switch `main_delay_dwell_controls`, ON by the user's decision): DELAY / DWELL with -/+ and

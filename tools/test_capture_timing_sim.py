@@ -63,10 +63,14 @@ def test_plan_blasts():
     check("ON time = row time + DELAY", abs(t_on - exp_on) < 1e-9, f"(ON at +{(t_on-1000)*1000:.3f} ms)")
     check("blast = 8 lines + 3 ms PULSE", abs((t_off - t_on) - (8 * LP + 0.003)) < 1e-9,
           f"({(t_off-t_on)*1000:.3f} ms)")
-    b2 = ct.plan_blasts([5], {}, 64, 0.0, LP, 10.0, 0.0, CFG)
+    CFG0 = dict(CFG, continue_margin_ms=0.0)      # without the 3 Nov "object continues" hold
+    b2 = ct.plan_blasts([5], {}, 64, 0.0, LP, 10.0, 0.0, CFG0)
     check("no row info -> whole frame used", abs((b2[0][2] - b2[0][1]) - 64 * LP) < 1e-9)
-    b3 = ct.plan_blasts([5], {5: (0, 63)}, 64, 0.0, 0.01, 10.0, 5.0, CFG)
+    b3 = ct.plan_blasts([5], {5: (0, 63)}, 64, 0.0, 0.01, 10.0, 5.0, CFG0)
     check("blast capped at max_pulse_ms", abs((b3[0][2] - b3[0][1]) - 0.2) < 1e-9)
+    b4 = ct.plan_blasts([5], {5: (60, 63)}, 64, 0.0, LP, 10.0, 3.0, dict(CFG, continue_margin_ms=8.0))
+    check("object touching the last row -> open until the next frame can arrive",
+          abs(b4[0][2] - (64 * LP + 0.008)) < 1e-9, f"(OFF at +{b4[0][2]*1000:.2f} ms)")
     # earlier row must fire earlier
     b4 = ct.plan_blasts([1, 2], {1: (0, 0), 2: (63, 63)}, 64, 0.0, LP, 10.0, 1.0, CFG)
     check("row 0 fires 63 lines before row 63", abs((b4[1][1] - b4[0][1]) - 63 * LP) < 1e-9)

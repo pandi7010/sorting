@@ -54,6 +54,10 @@ DEFAULTS = {
     "spin_ms": 3.0,                   # last N ms before a valve event: busy-wait (Windows sleep is ~1-2 ms)
     "gil_switch_interval_ms": 0.5,    # Python lets another thread run after this long (default 5 ms = valve
                                       # can be 5 ms late while a camera thread runs Python code). 0 = unchanged
+    "continue_margin_ms": 8.0,        # 3 Nov 2026: object touches the LAST row of a frame = it goes on into the
+                                      # next frame -> keep the valve open until that frame can arrive (frame
+                                      # time + this margin for transfer/processing), so a long object or a wire
+                                      # gives ONE blast instead of "pat pat" at the frame rate. 0 = off
 }
 
 
@@ -132,7 +136,13 @@ def plan_blasts(channels, row_extents, rows_used, frame_end, line_period, delay_
         t_on = t_first + delay_ms / 1000.0
         dur = (r1 - r0 + 1) * line_period + pulse_ms / 1000.0
         dur = max(min_p, min(max_p, dur))
-        out.append((int(ch), t_on, t_on + dur))
+        t_off = t_on + dur
+        cont = float(cfg.get("continue_margin_ms", 0.0) or 0.0) / 1000.0
+        if cont > 0 and r1 >= rows_used - 1:
+            # the object continues into the next frame: that frame ends rows_used lines later and reaches the
+            # PC a few ms after that - stay open until then (the next frame's blast merges into this one)
+            t_off = max(t_off, frame_end + rows_used * line_period + cont)
+        out.append((int(ch), t_on, t_off))
     return out
 
 
@@ -154,6 +164,7 @@ class TimedValveScheduler(threading.Thread):
         self.running = True
         self.stats = {"blasts": 0, "on_time": 0, "late": 0, "missed": 0, "merged": 0, "max_late_ms": 0.0}
         self._last_stats_t = clock()
+        self._last_refresh = clock()
 
     # ---------------------------------------------------------------- API (camera threads)
     def add(self, blasts):
@@ -237,6 +248,16 @@ class TimedValveScheduler(threading.Thread):
                 self.write_fn(bytes(sorted(to_on)))
             if to_off:
                 self.write_fn(bytes([c + 100 for c in sorted(to_off)]))
+            # 3 Nov 2026: esp.ino closes any valve that was not re-sent ON within 250 ms (watchdog 'W').
+            # A long object (or a wire held in front of the camera) merges into one long blast that sends ON only
+            # once - so re-send the channels that are still ON every 100 ms, like the level-following path does.
+            now_r = self.clock()
+            if now_r - self._last_refresh >= 0.1:
+                self._last_refresh = now_r
+                with self._lock:
+                    held = sorted(ch for ch in self._on_hw if ch not in to_on)
+                if held:
+                    self.write_fn(bytes(held))
             self._maybe_print_stats()
             if nxt is None:
                 self._wake.wait(0.01)

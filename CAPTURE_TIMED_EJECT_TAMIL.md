@@ -199,3 +199,10 @@ START SYSTEM button ku mela: `DELAY (ms): [-] [22] [+]    DWELL (ms): [-] [3] [+
 - Profile maathinaa (RICE → DHALL), andha profile oda values kaattum.
 - **TIMED EJECT: OFF** nu orange la irundha, sorter innum DELAY / DWELL ah use pannaadhu. `capture_timed_eject_enabled: true` pannaa dhaan use aagum (green ah "ON - used" nu varum).
 - Switch: `main_delay_dwell_controls` (default true, user ketta maadhiri). Test: `python tools\test_delay_dwell_main_ui.py`
+
+# Timed mode la wire vecchaa "pat pat" (3 Nov 2026)
+
+- Kaaranam: DELAY 13 ms, aana camera frame 12.5 ms + PC ku vara ~4–9 ms. Adutha frame PC ku varradhukkulla munnaadi blast mudinjidum, so valve ON → OFF → ON… frame ku oru thadava ("pat pat").
+- Fix (`capture_timing_config.json`: `"continue_margin_ms": 8`): object frame oda kadaisi line varaikkum irundha (adutha frame la um thodarum), valve ah adutha frame varra varaikkum (+8 ms) open ah vechirukkum. Wire / neela object = ore continuous blast. 0 = pazhaya maadhiri.
+- Innoru fix: neela blast la ESP32 250 ms watchdog valve ah off pannidum. Ippo ON byte ah 100 ms ku oru thadava thirumba anuppudhu.
+- Test: `python tools\test_timed_long_object_sim.py`
