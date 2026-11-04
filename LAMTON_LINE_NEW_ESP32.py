@@ -12401,7 +12401,22 @@ class MainDashboard(QMainWindow):
         # Vectorized Channel Mapping helper: maps triggered pixels directly to channels 1..63
         results_by_channel = {ch_idx: [] for ch_idx in range(num_channels)}
 
-        def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2, area_mask=None):
+        def _purity_area(cfg_):
+            """4 Nov 2026 (program_settings_fix_enabled): PURITY -> minimum defect area in pixels, the SAME mapping
+            as the settings-dialog preview (1-5 -> 2-5 px, 5-60 -> 4-45 px, 60-99 -> 45-245 px, 100 = never)."""
+            try:
+                pur = float(cfg_.get("purity", 1))
+            except Exception:
+                pur = 1.0
+            if pur >= 100:
+                return float('inf')
+            if pur <= 5:
+                return max(2, int(pur))
+            if pur <= 60:
+                return int(4 + ((pur - 5) / 55.0) ** 1.3 * 41)
+            return int(45 + ((pur - 60) / 39.0) ** 1.5 * 200)
+
+        def _map_to_channels(algo_trig, algo_nm, cls_nm, min_px=2, area_mask=None, min_area=None):
             if _clean_sw:
                 min_px = max(min_px, _ch_min_px)
             if start_pixel > 0: algo_trig[:start_pixel] = False
@@ -12412,12 +12427,15 @@ class MainDashboard(QMainWindow):
                 ch_arr = ((trig_px - start_pixel) / ch_w).astype(np.int32)
                 u_chs, counts = np.unique(ch_arr, return_counts=True)
                 _areas = None
-                if _det_fix and area_mask is not None:
+                _need = _min_area
+                if min_area is not None:
+                    _need = max(_min_area if _det_fix else 1, min_area)
+                if (_det_fix or min_area is not None) and area_mask is not None:
                     # defect pixels (all rows) per channel: a dust / hot pixel no longer fires a valve
                     _col_cnt = area_mask[:, trig_px].sum(axis=0)
                     _areas = dict(zip(u_chs.tolist(), np.bincount(np.searchsorted(u_chs, ch_arr), weights=_col_cnt).tolist()))
                 for ch_i, cnt in zip(u_chs, counts):
-                    if _areas is not None and _areas.get(int(ch_i), 0) < _min_area:
+                    if _areas is not None and _areas.get(int(ch_i), 0) < _need:
                         continue
                     if 0 <= ch_i < num_channels and cnt >= min_px:
                         results_by_channel[ch_i].append({
@@ -12472,7 +12490,7 @@ class MainDashboard(QMainWindow):
                 if _track_rows:
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
                 _map_to_channels(np.any(raw_def_mask, axis=0), algo_name, combo,
-                                 min_px=max(1, int(scale / 4)), area_mask=raw_def_mask)
+                                 min_px=max(1, int(scale / 4)), area_mask=raw_def_mask, min_area=_purity_area(cfg))
                 continue
 
             if _sliders and "SIZE" in algo_name:
@@ -12514,6 +12532,39 @@ class MainDashboard(QMainWindow):
                                                          "channel": ch_i + 1, "width_px": w})
                 continue
             
+            if _prog_fix and "SIZE" in algo_name:
+                # 4 Nov 2026: SMALL / BIG LIMIT of the settings dialog are object AREAS in pixels (the preview measures
+                # contour areas). A line-scan frame sees only a slice of an object, so compare the whole-object WIDTH
+                # (neighbouring columns that differ from the background, across channel borders) with the width of a
+                # round object of that area: d = 2 * sqrt(area / pi).  BIG 2300 -> 54 px, SMALL 1000 -> 36 px.
+                try:
+                    big_px = 2.0 * (float(cfg.get("big", 2300)) / np.pi) ** 0.5
+                    small_px = 2.0 * (float(cfg.get("small", 1000)) / np.pi) ** 0.5
+                except Exception:
+                    big_px, small_px = 54.0, 36.0
+                _gm = _graph_mask()
+                if _track_rows:
+                    _row_mask = _gm if _row_mask is None else (_row_mask | _gm)
+                col = np.any(_gm, axis=0)
+                col[:start_pixel] = False
+                col[end_pixel:] = False
+                padded = np.concatenate(([False], col, [False])).astype(np.int8)
+                edges = np.diff(padded)
+                want_small = ("SHORT" in algo_name or "SMALL" in algo_name)
+                ch_w = float(end_pixel - start_pixel) / float(num_channels)
+                for rs, re_ in zip(np.where(edges == 1)[0], np.where(edges == -1)[0]):
+                    w = int(re_ - rs)
+                    if w < 2:
+                        continue
+                    if not ((w <= small_px) if want_small else (w >= big_px)):
+                        continue
+                    for ch_i in range(max(0, int((rs - start_pixel) / ch_w)),
+                                      min(num_channels - 1, int((re_ - 1 - start_pixel) / ch_w)) + 1):
+                        results_by_channel[ch_i].append({"enabled": True, "detected": True, "algo": algo_name,
+                                                         "class": "SMALL" if want_small else "BIG",
+                                                         "channel": ch_i + 1, "width_px": w})
+                continue
+
             # --- GRAY ALGORITHM LOGIC ---
             if "GRAY" in algo_name:
                 ch = cfg.get("channel", "GREEN")
@@ -12582,12 +12633,13 @@ class MainDashboard(QMainWindow):
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
 
                 algo_trigger = np.any(raw_def_mask, axis=0)
+                _pa = _purity_area(cfg) if _prog_fix else None
                 if mode == "LIGHT DEFECT":
                     min_def_px = max(2, int((scale * purity) / 50.0))
-                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_def_px, area_mask=raw_def_mask)
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_def_px, area_mask=raw_def_mask, min_area=_pa)
                 else:
                     min_px = max(1, int(scale / 4))
-                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_px, area_mask=raw_def_mask)
+                    _map_to_channels(algo_trigger, algo_name, mode, min_px=min_px, area_mask=raw_def_mask, min_area=_pa)
 
 
             # --- SIZE LOGIC ---
@@ -12686,13 +12738,16 @@ class MainDashboard(QMainWindow):
                     raw_def_mask = ~raw_def_mask
                 if _prog_fix:
                     raw_def_mask &= _graph_mask()        # only product pixels (the empty chute is never a defect)
+                    if sens <= 0:
+                        raw_def_mask[:] = False          # SENSITIVITY 0 = off, as in the settings-dialog preview
 
                 if _track_rows:
                     _row_mask = raw_def_mask if _row_mask is None else (_row_mask | raw_def_mask)
 
                 algo_trigger = np.any(raw_def_mask, axis=0)
                 min_px = max(1, int(scale / 4))
-                _map_to_channels(algo_trigger, algo_name, hsv_mode, min_px=min_px, area_mask=raw_def_mask)
+                _map_to_channels(algo_trigger, algo_name, hsv_mode, min_px=min_px, area_mask=raw_def_mask,
+                                 min_area=_purity_area(cfg) if _prog_fix else None)
             # --- DEEP LEARNING LOGIC (YOLO / CNN) ---
             elif "DEEP LEARNING" in algo_name or "YOLO" in algo_name or "AI" in algo_name:
                 if getattr(self, '_dl_buffer', None) is None:

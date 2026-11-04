@@ -214,3 +214,16 @@ START SYSTEM button ku mela: `DELAY (ms): [-] [22] [+]    DWELL (ms): [-] [3] [+
 - Switch `"ejector_auto_reconnect": true` → link poana, adhe COM port ah background la thirumba open pannum (3 s ku oru try). Console la `[EJECTOR LINK] LOST` / `reconnected` varum.
 - LED line "ESP32 OK" nu kaattiyum valves adikkala na → ESP32 board pakkam (power drop, reset, noise): board LED, USB cable (short + ferrite), 24 V GND separate ah check pannunga.
 - Test: `python tools\test_ejector_link_watch_sim.py`
+
+# SENSITIVITY / PURITY / SCALE / SIZE nijamaave work aagudhaa (4 Nov 2026)
+
+Test: `python tools\test_algo_params_sim.py`. Switch OFF (ippo machine) la:
+
+| Setting | GRAY | HSV | SIZE |
+|---|---|---|---|
+| SENSITIVITY | ✅ work (0 = off) | ⚠️ 0 la kooda adikkum | – |
+| PURITY | ❌ effect illa (DARK mode) | ❌ effect illa | – |
+| SCALE | ✅ chinna objects ignore | ✅ | – |
+| SMALL / BIG LIMIT | – | – | ❌ ore channel kulla (max 64 px) mattum alakkum |
+
+`"program_settings_fix_enabled": true` pottaa: PURITY = minimum defect area (dialog preview maadhiriye: 1→2 px, 30→~19 px, 60→45 px, 100 = never), HSV SENSITIVITY 0 = off, SIZE = muzhu object agalam (BIG 2300 ≈ 54 px, SMALL 1000 ≈ 36 px). Idhe switch HSV / DISCOLOUR ah product pixel ku mattum vechukkum (3 Nov).

@@ -2,6 +2,18 @@
 
 ---
 
+## 4 Nov 2026 - SENSITIVITY / PURITY / SCALE / SIZE limits checked (`tools/test_algo_params_sim.py`)
+
+- App walk-through on the machine (AnyDesk): all dialogs open; ejector SINGLE PULSE acked; START/STOP fine, ESP32 OK.
+  Found: relay board OFFLINE (feeder / lights / wiper / air not driven); auto-clean every 6 min pauses detection and
+  valves ~8 s (process_live_frame returns while wiper_active_now) while the feeder keeps running (relays offline) -
+  likely part of "valves stop after 4-5 min". Interval 0 would start a 0 ms QTimer (continuous wiper) - not fixed yet.
+- Parameters, switch OFF: GRAY sens works (0 = off), purity no effect in DARK mode; HSV purity no effect, sens 0 still
+  fires; SCALE works for both (min columns = scale / 4); SIZE counts dark pixels inside one channel only.
+- `program_settings_fix_enabled` now also: PURITY -> minimum defect area per channel (same mapping as the dialog
+  preview) for GRAY / HSV / DISCOLOUR; HSV sens 0 = off; SIZE BIG / SHORT = whole-object width vs the width of a round
+  object with the dialog's area limit (2 * sqrt(A / pi)); runtime_sliders_enabled SIZE path still wins when ON.
+
 ## 3 Nov 2026 (evening 2) - valves stop after 4-5 min while the LED bar still shows detections
 
 - Cause found in ejector_link.py: `_reader` sets mode = None after ONE serial read error and exits; `is_open` is then
