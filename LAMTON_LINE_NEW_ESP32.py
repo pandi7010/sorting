@@ -11282,6 +11282,16 @@ class BackgroundGraphWindow(QDialog):
                 if 0 <= ch_idx < self.num_channels and cnt >= 2:
                     current_active.add(int(ch_idx + 1))
 
+        # 4 Nov 2026 (switch graph_test_same_as_sorting, ON by the user's decision): the test firing here must give
+        # the SAME result as START SYSTEM. The old code checked only the newest 2 lines of each 64-line frame
+        # (~0.4 of ~12.5 ms), so most falling flakes were never seen here although the sorter rejected them.
+        # Now the whole frame goes through the sorter's own BACKGROUND (GRAPH) detection with this window's
+        # camera, bounds, source colour and thresholds (incl. detection_fixes / clean_channel_switch filters).
+        if features.enabled("graph_test_same_as_sorting"):
+            _same = self._sorter_channels(frame)
+            if _same is not None:
+                current_active = _same
+
         if features.enabled("eject_diag_enabled"):
             try:
                 self._eject_diag(min_line, max_line, breach, channels_to_check, current_active, n_lines)
@@ -11341,6 +11351,30 @@ class BackgroundGraphWindow(QDialog):
             else:
                 for ch in to_turn_off:
                     self.arduino.hold_ejector_off(ch)
+
+    def _sorter_channels(self, frame):
+        """Channels the running sorter's BACKGROUND (GRAPH) detection would fire for this frame of the camera shown
+        here (all lines, same filters). None = no main window to ask (then the old 2-line check is used)."""
+        mw = getattr(getattr(self, 'parent_ui', None), 'main_window', None)
+        if mw is None or not hasattr(mw, 'process_frame_for_defects'):
+            return None
+        if not features.enabled("background_graph_algo_enabled"):
+            return None                                # the sorter has no BACKGROUND (GRAPH) detection then
+        try:
+            bg = getattr(mw, 'bg_settings', None)
+            if isinstance(bg, dict):
+                bg["camera_thresh"] = self.camera_thresh           # exactly the values shown in this window
+                bg["wave_mode"] = getattr(self, "wave_mode", bg.get("wave_mode", "BLUE"))
+            cams = {"start_pixel": int(self.start_pixel), "end_pixel": int(self.end_pixel),
+                    "num_channels": int(self.num_channels), "wave_mode": getattr(self, "wave_mode", "BLUE"),
+                    "total_chutes": 1, "chute_roles": {"1": "PRIMARY"}}
+            dec = mw.process_frame_for_defects(frame, cams, ["BACKGROUND (GRAPH)"], {}, self.camera_view)
+            return set(int(c) for c in dec.get("channels", []))
+        except Exception as exc:
+            if not getattr(self, '_same_err_shown', False):
+                self._same_err_shown = True
+                print(f"[GRAPH TEST] sorter detection failed, using the 2-line check: {type(exc).__name__}: {exc}")
+            return None
 
     def _timed_params(self):
         """(delay_s, blow_s) set in the graph window for the current camera view. Both 0 = timed mode OFF."""

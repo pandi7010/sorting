@@ -239,3 +239,4 @@ Gavanikka:
 - **CAM 1–10** number edhuvum pannaadhu (code la use illa).
 - **CONNECT / DISCONNECT ESP32** button relay board ah dhaan connect / disconnect pannum, ejector ah illa.
 - **REF** maathinaa camera gain udane maarum, backup illa. Maathura munnaadi pazhaya value ah note pannunga.
+- **4 Nov: graph test firing = START SYSTEM.** Switch `"graph_test_same_as_sorting": true` (default ON, user ketta maadhiri). Graph test firing ippo sorting oda detection ah ye (BACKGROUND (GRAPH), **64 lines um**, adhe noise filter) andha window la irukkura camera / HI / LO / SOURCE / START-END vechu use pannum. Pazhaya 2-lines check ku `false` podunga (wire position test ku).

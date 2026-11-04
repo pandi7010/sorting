@@ -30,6 +30,8 @@ until you switch something on in  features_config.json  (restart the program aft
       "hsv_box_fix_enabled": false         HSV colour box selection maps through the shown image
       "program_settings_fix_enabled": false  HSV / DISCOLOUR look only at product pixels (SORT IN no longer
                                            fires the empty chute) and DISCOLOUR uses its Color Combo
+      "graph_test_same_as_sorting": true   Background Graph test firing uses the sorter's detection (all 64 lines),
+                                           so it fires exactly like START SYSTEM (ON by the user's decision)
       "ejector_auto_reconnect": false      ejector USB link lost (valves stop, LED bar still shows detections)
                                            -> reopen the same COM port automatically (state is always shown)
       "main_delay_dwell_controls": true    DELAY / DWELL (+/- and keypad, auto-saved) above START SYSTEM
@@ -65,6 +67,7 @@ DEFAULTS = {
     "ejector_test_panel_button": True,     # ON by the user's decision (16 Oct 2026)
     "main_delay_dwell_controls": True,     # ON by the user's decision (3 Nov 2026): DELAY/DWELL above START SYSTEM
     "ejector_auto_reconnect": False,       # 3 Nov 2026: reopen the ejector COM port when the USB link drops
+    "graph_test_same_as_sorting": True,    # ON by the user's decision (4 Nov 2026): graph test firing = START SYSTEM
 }
 
 _cache = None

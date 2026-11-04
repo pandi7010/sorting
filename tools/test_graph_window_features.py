@@ -269,6 +269,39 @@ try:
     check("CAM 1 -> 2 (shown only - no code uses this number)", win.camera_id == 2)
     win.prev_cam()
 
+    print("15. Test firing = START SYSTEM (switch graph_test_same_as_sorting)")
+    from types import SimpleNamespace as NS
+    MD = m.MainDashboard
+    sorter = NS(bg_settings={"wave_mode": "GREEN", "camera_thresh": {}}, thresholds={})
+    sorter.process_frame_for_defects = lambda *a, **k: MD.process_frame_for_defects(sorter, *a, **k)
+    win.parent_ui.main_window = sorter
+    win.set_upper_manual("80"); win.set_lower_manual("12")
+    win.start_local_system()
+
+    def flake(ch, rows=(10, 15)):                  # a falling flake seen only in rows 10-14 of the 64-line frame
+        f = frame(None)
+        x = int(SP + (ch - 0.5) * CW)
+        f[rows[0]:rows[1], x - 15:x + 15] = (200, 200, 200)
+        return f
+    m.features._cache = dict(m.features.DEFAULTS, background_graph_algo_enabled=True, graph_test_same_as_sorting=False)
+    link.ev.clear(); win.update_live_frame(flake(33)); win.update_live_frame(frame(None))
+    check("switch OFF (old): flake in rows 10-14 is NOT seen (only the last 2 lines checked)", on_bytes(link) == [], str(on_bytes(link)))
+    m.features._cache = dict(m.features.DEFAULTS, background_graph_algo_enabled=True, graph_test_same_as_sorting=True)
+    link.ev.clear(); win.update_live_frame(flake(33)); win.update_live_frame(frame(None))
+    check("switch ON: the same flake fires ch 33", on_bytes(link) == [33], str(on_bytes(link)))
+    for fr_ in (flake(5), flake(60, rows=(0, 3)), frame(12, g=5), frame(None)):
+        cams = {"start_pixel": win.start_pixel, "end_pixel": win.end_pixel, "num_channels": 63, "wave_mode": "GREEN",
+                "total_chutes": 1, "chute_roles": {"1": "PRIMARY"}}
+        want = set(MD.process_frame_for_defects(sorter, fr_, cams, ["BACKGROUND (GRAPH)"], {}, "FRONT")["channels"])
+        got = win._sorter_channels(fr_)
+        check(f"graph = sorter for test frame ({sorted(want)})", got == want, f"graph {sorted(got or [])}")
+    m.features._cache = dict(m.features.DEFAULTS, detection_fixes_enabled=True, min_defect_area_px=20,
+                             background_graph_algo_enabled=True, graph_test_same_as_sorting=True)
+    tiny = frame(None); x = int(SP + 20.5 * CW); tiny[30:32, x:x + 3] = (200, 200, 200)
+    check("same noise filter as the sorter (6-pixel speck ignored with min area 20)", win._sorter_channels(tiny) == set())
+    m.features._cache = None
+    win.stop_local_system()
+
     print("14. BACK / close")
     win.close_cleanly()
     check("closing saves the settings (SOURCE GREEN kept)", saved().get("wave_mode") == "GREEN")

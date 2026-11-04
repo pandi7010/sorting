@@ -12,6 +12,10 @@
   all pass on Windows). Fix: SOURCE change is saved at once (was only with the next threshold change / close).
   Notes: band mode fires everything if the background is inside the band; test firing checks 2 lines only;
   CAM 1-10 is unused; CONNECT/DISCONNECT ESP32 acts on the relay board; REF changes camera gain with no backup.
+- Graph test firing now = START SYSTEM (switch `graph_test_same_as_sorting`, ON by the user's decision): the whole
+  frame goes through the sorter's BACKGROUND (GRAPH) detection with the window's camera / bounds / source / thresholds
+  (same noise filters). Old code checked only the newest 2 of 64 lines, so falling flakes were missed in the graph
+  window while START SYSTEM rejected them. Needs background_graph_algo_enabled; otherwise the old check is used.
 - Parameters, switch OFF: GRAY sens works (0 = off), purity no effect in DARK mode; HSV purity no effect, sens 0 still
   fires; SCALE works for both (min columns = scale / 4); SIZE counts dark pixels inside one channel only.
 - `program_settings_fix_enabled` now also: PURITY -> minimum defect area per channel (same mapping as the dialog

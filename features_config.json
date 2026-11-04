@@ -16,6 +16,7 @@
     "program_settings_fix_enabled": false,
     "continuous_capture_button": false,
     "ejector_auto_reconnect": false,
+    "graph_test_same_as_sorting": true,
     "main_delay_dwell_controls": true,
     "ejector_test_panel_button": true
 }
