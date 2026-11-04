@@ -11287,7 +11287,7 @@ class BackgroundGraphWindow(QDialog):
         # (~0.4 of ~12.5 ms), so most falling flakes were never seen here although the sorter rejected them.
         # Now the whole frame goes through the sorter's own BACKGROUND (GRAPH) detection with this window's
         # camera, bounds, source colour and thresholds (incl. detection_fixes / clean_channel_switch filters).
-        if features.enabled("graph_test_same_as_sorting"):
+        if features.enabled("graph_test_same_as_sorting") and hasattr(self, '_sorter_channels'):
             _same = self._sorter_channels(frame)
             if _same is not None:
                 current_active = _same
