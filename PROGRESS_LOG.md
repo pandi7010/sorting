@@ -8,6 +8,10 @@
   Found: relay board OFFLINE (feeder / lights / wiper / air not driven); auto-clean every 6 min pauses detection and
   valves ~8 s (process_live_frame returns while wiper_active_now) while the feeder keeps running (relays offline) -
   likely part of "valves stop after 4-5 min". Interval 0 would start a 0 ms QTimer (continuous wiper) - not fixed yet.
+- Background Graph window: every control checked with the real window (tools/test_graph_window_features.py, 14 groups,
+  all pass on Windows). Fix: SOURCE change is saved at once (was only with the next threshold change / close).
+  Notes: band mode fires everything if the background is inside the band; test firing checks 2 lines only;
+  CAM 1-10 is unused; CONNECT/DISCONNECT ESP32 acts on the relay board; REF changes camera gain with no backup.
 - Parameters, switch OFF: GRAY sens works (0 = off), purity no effect in DARK mode; HSV purity no effect, sens 0 still
   fires; SCALE works for both (min columns = scale / 4); SIZE counts dark pixels inside one channel only.
 - `program_settings_fix_enabled` now also: PURITY -> minimum defect area per channel (same mapping as the dialog

@@ -227,3 +227,15 @@ Test: `python tools\test_algo_params_sim.py`. Switch OFF (ippo machine) la:
 | SMALL / BIG LIMIT | – | – | ❌ ore channel kulla (max 64 px) mattum alakkum |
 
 `"program_settings_fix_enabled": true` pottaa: PURITY = minimum defect area (dialog preview maadhiriye: 1→2 px, 30→~19 px, 60→45 px, 100 = never), HSV SENSITIVITY 0 = off, SIZE = muzhu object agalam (BIG 2300 ≈ 54 px, SMALL 1000 ≈ 36 px). Idhe switch HSV / DISCOLOUR ah product pixel ku mattum vechukkum (3 Nov).
+
+# Background Graph window: ellaa controls um check (4 Nov 2026)
+
+Test: `python tools\test_graph_window_features.py` (real window, fake camera + fake ESP32). Ellam ✅:
+SOURCE (ippo maathina udane save + sorter ku poagum), WHITE (HI) / BLACK (LO), BAND PASS, VIEW FRONT / REAR (thani thani values), START / END, START / STOP TEST FIRING, DELAY / DWELL (21 ms / 5 ms measured), RESET (No = edhuvum maaraadhu), mela LED click (andha valve 25 ms), BLUE / GREEN / RED REF (camera gain, max 400, camera_config.json la save), BACK (save).
+
+Gavanikka:
+- **BAND PASS:** background band kulla irundhaa ellaa 63 um adikkum. Band ah background ah vittu vekkanum.
+- **Test firing** kadaisi **2 lines** mattum paakkum. Sorting (START SYSTEM) 64 lines um paakkum, so sorting la konjam adhigam fire aagalam.
+- **CAM 1–10** number edhuvum pannaadhu (code la use illa).
+- **CONNECT / DISCONNECT ESP32** button relay board ah dhaan connect / disconnect pannum, ejector ah illa.
+- **REF** maathinaa camera gain udane maarum, backup illa. Maathura munnaadi pazhaya value ah note pannunga.

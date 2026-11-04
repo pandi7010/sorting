@@ -11071,6 +11071,10 @@ class BackgroundGraphWindow(QDialog):
 
     def change_wave_mode(self, text):
         self.wave_mode = text
+        # 4 Nov 2026: save at once - before, a new SOURCE reached bg_config.json / the running sorter only with the
+        # next threshold change or when the window closed (sorting kept the old colour with the new thresholds)
+        if hasattr(self, 'group_limits'):           # not while the window is still being built
+            self.save_settings_silent()
 
     def update_upper_thresh(self, val):
         self.thresh_upper = val
