@@ -12,6 +12,11 @@
   all pass on Windows). Fix: SOURCE change is saved at once (was only with the next threshold change / close).
   Notes: band mode fires everything if the background is inside the band; test firing checks 2 lines only;
   CAM 1-10 is unused; CONNECT/DISCONNECT ESP32 acts on the relay board; REF changes camera gain with no backup.
+- Machine settings files untracked (user agreed): bg_config, camera_config, ejector_config, features_config, recipes,
+  system_config, wiper_config, light_config, vision_settings -> .gitignore; committed versions kept in config_defaults/;
+  the sorter copies a missing one from there at start (_ensure_local_configs). Cause: every pull conflicted with the
+  machine's values; one half-merged features_config.json (conflict markers = invalid JSON) silently reset every switch
+  to its default and fired all 63 valves. New switches: put defaults in features.DEFAULTS (+ config_defaults/).
 - Machine 12:48: white-only band (FRONT BLUE band 45-80) fired ALL 63 valves. The machine's features_config had
   background_graph_algo_enabled false again (BACKGROUND (GRAPH) button gone from Program Settings), so the recipe's
   BACKGROUND (GRAPH) entry ran the old FALLBACK code, which ignored BAND PASS: background (blue ~110) > "HI" 80 -> all

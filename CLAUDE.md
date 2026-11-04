@@ -38,6 +38,7 @@
 8. CNN must stay optional and never block the colour/HSV/contour ejection path; don't change the real-time ejection path without approval.
 
 ## Practical notes
+- Machine settings JSONs (bg/camera/ejector/features/recipes/system/wiper/light/vision) are NOT in git since 4 Nov 2026: each PC keeps its own; defaults in `config_defaults/` (copied at start when missing). Machine update = plain `git pull`.
 - Git: `C:\Program Files\Git\cmd\git.exe` (may not be on PATH). Ignored: `build/ dist/ dataset_capture/ logs/ .venv_build/`.
 - `LAMTON_LINE_NEW_ESP32.py` uses **CRLF**; keep it when editing with scripts.
 - Starting the main window in tests rewrites `ejector_config.json` (original start-up behaviour) — restore it afterwards.

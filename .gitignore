@@ -33,3 +33,14 @@ dev_unlock*.json
 
 # Local backups made before changes (2 Nov 2026)
 backups/
+
+# Machine settings - each PC keeps its own (created from config_defaults/ when missing) - 4 Nov 2026
+/bg_config.json
+/camera_config.json
+/ejector_config.json
+/features_config.json
+/recipes.json
+/system_config.json
+/wiper_config.json
+/light_config.json
+/vision_settings.json

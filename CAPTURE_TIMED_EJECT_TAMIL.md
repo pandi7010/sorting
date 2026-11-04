@@ -240,3 +240,19 @@ Gavanikka:
 - **CONNECT / DISCONNECT ESP32** button relay board ah dhaan connect / disconnect pannum, ejector ah illa.
 - **REF** maathinaa camera gain udane maarum, backup illa. Maathura munnaadi pazhaya value ah note pannunga.
 - **4 Nov: graph test firing = START SYSTEM.** Switch `"graph_test_same_as_sorting": true` (default ON, user ketta maadhiri). Graph test firing ippo sorting oda detection ah ye (BACKGROUND (GRAPH), **64 lines um**, adhe noise filter) andha window la irukkura camera / HI / LO / SOURCE / START-END vechu use pannum. Pazhaya 2-lines check ku `false` podunga (wire position test ku).
+
+# Machine settings files ini git la illa (4 Nov 2026)
+
+`bg_config.json`, `camera_config.json`, `ejector_config.json`, `features_config.json`, `recipes.json`, `system_config.json`, `wiper_config.json`, `light_config.json`, `vision_settings.json`: ovvoru PC kum sondham. Git ivangala thodaadhu, so **pull la conflict varaadhu, `git stash` theva illa**. Pudhu PC la file illa na, app start aagum podhu `config_defaults/` la irundhu oru thadava copy pannum.
+
+**Machine la ORU THADAVA mattum (indha change ah pull pannum podhu):**
+```
+mkdir $env:TEMP\lamcfg -Force
+Copy-Item bg_config.json,camera_config.json,ejector_config.json,features_config.json,recipes.json,system_config.json,wiper_config.json,light_config.json,vision_settings.json $env:TEMP\lamcfg\
+git stash
+git pull
+git stash drop
+Copy-Item $env:TEMP\lamcfg\*.json . -Force
+git status
+```
+`git status` la indha files varave koodaadhu. Inimel update ku **`git pull` mattum** podhum.

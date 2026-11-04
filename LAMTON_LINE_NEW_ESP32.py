@@ -35,6 +35,30 @@ import json
 import logging
 import math
 
+# 4 Nov 2026: the machine's own settings files are NOT in git any more (every pull used to conflict with the
+# values set on the machine and once left features_config.json half-merged -> all switches default -> all 63
+# valves fired). A missing file is created once from config_defaults/ ; after that it belongs to this PC only.
+LOCAL_CONFIG_FILES = ("bg_config.json", "camera_config.json", "ejector_config.json", "features_config.json",
+                      "recipes.json", "system_config.json", "wiper_config.json", "light_config.json",
+                      "vision_settings.json")
+
+
+def _ensure_local_configs():
+    import shutil
+    here = os.path.dirname(os.path.abspath(__file__))
+    for _name in LOCAL_CONFIG_FILES:
+        _dst = os.path.join(here, _name)
+        _src = os.path.join(here, "config_defaults", _name)
+        if not os.path.exists(_dst) and os.path.exists(_src):
+            try:
+                shutil.copy(_src, _dst)
+                print(f"[CONFIG] {_name} created from config_defaults/")
+            except Exception as _e:
+                print(f"[CONFIG] could not create {_name}: {_e}")
+
+
+_ensure_local_configs()
+
 BG_CONFIG_FILE = "bg_config.json"
 LIGHT_CONFIG_FILE = "light_config.json"
 RECIPES_FILE = "recipes.json"
