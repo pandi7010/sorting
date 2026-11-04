@@ -12,6 +12,10 @@
   all pass on Windows). Fix: SOURCE change is saved at once (was only with the next threshold change / close).
   Notes: band mode fires everything if the background is inside the band; test firing checks 2 lines only;
   CAM 1-10 is unused; CONNECT/DISCONNECT ESP32 acts on the relay board; REF changes camera gain with no backup.
+- Machine 12:48: white-only band (FRONT BLUE band 45-80) fired ALL 63 valves. The machine's features_config had
+  background_graph_algo_enabled false again (BACKGROUND (GRAPH) button gone from Program Settings), so the recipe's
+  BACKGROUND (GRAPH) entry ran the old FALLBACK code, which ignored BAND PASS: background (blue ~110) > "HI" 80 -> all
+  fire. Fix: FALLBACK honours band_mode (tools/test_fallback_band_sim.py). User told to set the switch back to true.
 - Graph test firing now = START SYSTEM (switch `graph_test_same_as_sorting`, ON by the user's decision): the whole
   frame goes through the sorter's BACKGROUND (GRAPH) detection with the window's camera / bounds / source / thresholds
   (same noise filters). Old code checked only the newest 2 of 64 lines, so falling flakes were missed in the graph

@@ -12857,21 +12857,26 @@ class MainDashboard(QMainWindow):
                 
                 algo_trigger = np.zeros(len(b_vals_min), dtype=bool)
                 wave_mode = camera_configs.get("wave_mode", "BLUE")
-                if "BLUE" in wave_mode or "ALL" in wave_mode: 
-                    algo_trigger |= (b_vals_min < thresh_lower) | (b_vals_max > thresh_upper)
-                if "GREEN" in wave_mode or "ALL" in wave_mode: 
-                    algo_trigger |= (g_vals_min < thresh_lower) | (g_vals_max > thresh_upper)
-                if "RED" in wave_mode or "ALL" in wave_mode: 
-                    algo_trigger |= (r_vals_min < thresh_lower) | (r_vals_max > thresh_upper)
+                # 4 Nov 2026 fix: BAND PASS was ignored here. With band 45-80 the background (above 80) was taken as
+                # "brighter than HI" and ALL 63 valves fired (machine, BACKGROUND (GRAPH) switch off -> this branch).
+                _band = bool(((self.bg_settings.get("camera_thresh", {}) or {}).get(source, {}) or {}).get(
+                    "band_mode", self.bg_settings.get("band_mode", False)))
+                for _key, _mn, _mx in (("BLUE", b_vals_min, b_vals_max), ("GREEN", g_vals_min, g_vals_max),
+                                       ("RED", r_vals_min, r_vals_max)):
+                    if _key in wave_mode or "ALL" in wave_mode:
+                        if _band:
+                            # inside the band in at least one line (same as the Background Graph band check)
+                            _pl = {"BLUE": b, "GREEN": g, "RED": r}[_key]
+                            algo_trigger |= np.any((_pl > thresh_lower) & (_pl < thresh_upper), axis=0)
+                        else:
+                            algo_trigger |= (_mn < thresh_lower) | (_mx > thresh_upper)
                 
                 if _track_rows:
                     _m2 = np.zeros(b.shape, dtype=bool)
-                    if "BLUE" in wave_mode or "ALL" in wave_mode:
-                        _m2 |= (b < thresh_lower) | (b > thresh_upper)
-                    if "GREEN" in wave_mode or "ALL" in wave_mode:
-                        _m2 |= (g < thresh_lower) | (g > thresh_upper)
-                    if "RED" in wave_mode or "ALL" in wave_mode:
-                        _m2 |= (r < thresh_lower) | (r > thresh_upper)
+                    for _key, _pl in (("BLUE", b), ("GREEN", g), ("RED", r)):
+                        if _key in wave_mode or "ALL" in wave_mode:
+                            _m2 |= ((_pl > thresh_lower) & (_pl < thresh_upper)) if _band else \
+                                   ((_pl < thresh_lower) | (_pl > thresh_upper))
                     _row_mask = _m2 if _row_mask is None else (_row_mask | _m2)
 
                 _map_to_channels(algo_trigger, "FALLBACK", "DEFECT", min_px=2)
