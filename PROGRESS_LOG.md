@@ -2,6 +2,19 @@
 
 ---
 
+## 11 Nov 2026 (evening) - DWELL = exact blow time, like a fan regulator (user's request)
+
+- User: "DWELL 0 must not blow; 1, 2, 3 ... longer" (fan regulator). The first follow mode kept the valve open while
+  the camera saw the object and added DWELL on top, so DWELL 0 still blew ~16 ms. Changed `_follow_delay_dwell_fire`:
+  wait DELAY ms after the PC decision, then blow exactly DWELL ms; DWELL 0 = no blow. One blast per detection; the
+  channel's blast memory is forgotten when the blast is over, so an object still seen gets the next blast.
+  `follow_frame_margin_ms` removed. Example: DELAY 5, DWELL 20 -> ON at 5 ms, OFF at 25 ms.
+- `tools/test_esp32_free_sim.py` (section 3 rewritten): DWELL 0 never opens; blow = DWELL within 0.1 ms (1/10/50 ms);
+  ON = DELAY (0.1 / 5.1 / 20.1 ms); DWELL 5<15<30<60 = longer blows; long object repeats. ALL TESTS PASSED.
+  **Needs the real machine** (switch still OFF by default; set DELAY 0 first on the 47 mm nozzle).
+
+---
+
 ## 11 Nov 2026 - "ESP32 stops responding for a while" + "DELAY / DWELL do nothing" (`tools/test_esp32_free_sim.py`)
 
 User report: (1) after some minutes of running the valves stop for a while, then work again; (2) DELAY / DWELL on the

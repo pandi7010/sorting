@@ -13105,14 +13105,14 @@ class MainDashboard(QMainWindow):
         self._last_eval_t = prev
 
     def _follow_delay_dwell_fire(self, link, source, frame_channels):
-        """11 Nov 2026 (switch follow_delay_dwell_enabled). Like the normal mode the valve follows the camera,
-        but the main-screen DELAY and DWELL are used:
-            valve ON  = (time the PC has found the object) + DELAY
-            valve OFF = ON + one frame time + margin + DWELL      (a new frame with the object extends it)
-        Example (frames every 12.5 ms, margin 4 ms): DELAY 0, DWELL 10 -> the valve opens at once and closes
-        10 ms after the last frame that still showed the object. DELAY 0 + DWELL 0 = like the old mode.
-        DELAY counts from the PC decision (not from the camera line), so a blast is never dropped as MISSED;
-        with the nozzle 47 mm below the line the PC is already late, so keep DELAY 0 there."""
+        """11 Nov 2026 (switch follow_delay_dwell_enabled). DELAY / DWELL work like a fan regulator:
+            DELAY = how long to WAIT after the PC has found the object (0 = at once)
+            DWELL = how long the valve BLOWS, exactly (0 = no blow at all, 10 = 10 ms, 50 = 50 ms)
+        One blast per detection; while that blast is waiting / blowing the channel is not fired again. When the
+        blast is over its memory is gone - if the camera still sees an object there, the next blast starts.
+        Example: DELAY 5, DWELL 20, object seen at t = 0 -> valve ON at 5 ms, OFF at 25 ms.
+        DELAY counts from the PC decision (not from the camera line); with the nozzle 47 mm below the line the
+        PC is already late, so keep DELAY 0 there."""
         sched = getattr(self, '_timed_valves', None)
         if sched is None or not sched.is_alive() or getattr(sched, '_link', None) is not link:
             if sched is not None:
@@ -13122,7 +13122,8 @@ class MainDashboard(QMainWindow):
             sched.start()
             self._timed_valves = sched
             self._capture_clock = capture_timing.CaptureClock(sched.cfg)
-            print("[FOLLOW EJECT] DELAY/DWELL follow mode ACTIVE (DELAY after the PC decision, DWELL after the object)")
+            self._follow_busy_until = {}
+            print("[FOLLOW EJECT] DELAY/DWELL mode ACTIVE (wait DELAY ms, then blow exactly DWELL ms)")
         if getattr(self.esp32, 'ejector_test_active', False):
             return
         now = time.perf_counter()
@@ -13137,15 +13138,24 @@ class MainDashboard(QMainWindow):
         if not frame_channels:
             return
         delay_ms, dwell_ms = self._timed_delay_pulse
-        try:
-            margin_ms = float(features.value("follow_frame_margin_ms", 4.0))
-        except Exception:
-            margin_ms = 4.0
-        period_ms = float((getattr(self, '_frame_interval_ms', {}) or {}).get(source, 12.5))
-        period_ms = max(2.0, min(100.0, period_ms))
-        t_on = now + max(0.0, float(delay_ms)) / 1000.0
-        t_off = t_on + (period_ms + max(0.0, margin_ms) + max(0.0, float(dwell_ms))) / 1000.0
-        sched.add([(int(ch), t_on, t_off) for ch in frame_channels])
+        delay_s = max(0.0, float(delay_ms)) / 1000.0
+        dwell_s = max(0.0, float(dwell_ms)) / 1000.0
+        if dwell_s <= 0.0:
+            return                               # DWELL 0 = the valve never blows
+        busy = getattr(self, '_follow_busy_until', None)
+        if busy is None:
+            busy = self._follow_busy_until = {}
+        blasts = []
+        for ch in frame_channels:
+            ch = int(ch)
+            if now < busy.get(ch, 0.0):
+                continue                         # this channel's blast is still waiting / blowing
+            t_on = now + delay_s
+            t_off = t_on + dwell_s
+            busy[ch] = t_off                     # memory of this blast, forgotten when it is over
+            blasts.append((ch, t_on, t_off))
+        if blasts:
+            sched.add(blasts)
 
     def evaluate_fusion_and_fire(self, source=None):
         f_dec = getattr(self, '_last_front_decision', None)
@@ -13359,6 +13369,7 @@ class MainDashboard(QMainWindow):
             self._timed_valves.clear()
         if getattr(self, '_capture_clock', None):
             self._capture_clock.reset()
+        self._follow_busy_until = {}
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()
@@ -15009,7 +15020,7 @@ class MainDashboard(QMainWindow):
         if on:
             state = "TIMED EJECT: ON - used"
         elif follow:
-            state = "FOLLOW MODE - DELAY + DWELL used"
+            state = "DELAY = wait, DWELL = blow time (0 = no blow)"
         else:
             state = "NOT USED (valve follows the camera)"
         on = on or follow

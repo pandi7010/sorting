@@ -4,7 +4,7 @@ Real MainDashboard methods with a fake ESP32 link (records every byte with its t
   1. switch auto_wiper_enabled (OFF by the user's decision): no automatic 8 s sorting pause; interval 0 safe
   2. switch ejector_memory_clear_enabled (ON by the user's decision): a stopped camera's valve is closed,
      valves the ESP32 watchdog closed are forgotten, ESP32 restarts are detected
-  3. switch follow_delay_dwell_enabled: DELAY and DWELL really move / lengthen the blast
+  3. switch follow_delay_dwell_enabled: DELAY = wait, DWELL = exact blow time (0 = no blow)
 
     python tools/test_esp32_free_sim.py      -> must print  ALL TESTS PASSED
 STILL NEEDS THE REAL MACHINE: actual blast position on the product, real ESP32 brown-out restarts.
@@ -208,46 +208,66 @@ lk2 = EjectorLink("COMX"); lk2.ser = ReadySer(); lk2.mode = "ESP_BYTE"; lk2._run
 lk2._reader()
 check("EjectorLink counts the ESP32 READY boot line", lk2.counters["esp_resets"] == 1, str(lk2.counters["esp_resets"]))
 
-# ------------------------------------------------------------------ 3. follow DELAY / DWELL
-print("3. follow mode: DELAY and DWELL really work")
+# ------------------------------------------------------------------ 3. DELAY / DWELL like a fan regulator
+print("3. DELAY = wait, DWELL = exact blow time (0 = no blow)")
 
 
-def run_object(delay, dwell, frames_with_object=4):
+def run_object(delay, dwell, frames_with_object=1):
     feats(follow_delay_dwell_enabled=True)
     d = mk(delay, dwell); lk = d.esp32.ejector_link
     for _ in range(3):                      # empty frames first, as after START (the valve thread starts here)
         frame(d, "FRONT", []); time.sleep(0.0125)
     t0 = time.perf_counter()
-    first = last = None
-    for i in range(frames_with_object + 12):
+    first = None
+    for i in range(frames_with_object + 16):
         sleep_until(t0 + i * 0.0125)
         chs = [12] if i < frames_with_object else []
-        if chs:
-            first = first or time.perf_counter()
-            last = time.perf_counter()
+        if chs and first is None:
+            first = time.perf_counter()
         frame(d, "FRONT", chs)
-    sleep_until(time.perf_counter() + 0.35)
+    sleep_until(time.perf_counter() + 0.3)
     d._timed_valves.stop()
     ev = [e for e in lk.events() if e[1] == 12]
-    return ev, first, last
+    return ev, first
 
 
-for delay, dwell in ((0, 0), (0, 10), (20, 0), (20, 30)):
-    ev, first, last = run_object(delay, dwell)
+ev, first = run_object(0, 0)
+check("DWELL 0 -> the valve never opens", not ev, str(ev))
+ev, first = run_object(20, 0)
+check("DELAY 20 + DWELL 0 -> still no blow", not ev, str(ev))
+
+for delay, dwell in ((0, 1), (0, 10), (0, 50), (20, 10), (5, 30)):
+    ev, first = run_object(delay, dwell)
     ons = [e for e in ev if e[2] == "ON"]; offs = [e for e in ev if e[2] == "OFF"]
     ok = len(ons) == 1 and len(offs) == 1
-    check(f"DELAY {delay:>2} DWELL {dwell:>2}: ONE blast (frames joined, no pat-pat)", ok, str(ev))
+    check(f"DELAY {delay:>2} DWELL {dwell:>2}: one blast for a one-frame object", ok, str(ev))
     if not ok:
         continue
     on_late = (ons[0][0] - first) * 1000.0
-    off_after = (offs[0][0] - last) * 1000.0
-    want_off = delay + 12.5 + 4.0 + dwell
-    check(f"   valve ON {on_late:.1f} ms after the first frame (want {delay})", abs(on_late - delay) < 3.0)
-    check(f"   valve OFF {off_after:.1f} ms after the last frame (want {want_off:.1f})", abs(off_after - want_off) < 3.0)
+    blow = (offs[0][0] - ons[0][0]) * 1000.0
+    check(f"   ON {on_late:.1f} ms after the object (want {delay})", abs(on_late - delay) < 2.0)
+    check(f"   blows {blow:.1f} ms (want exactly {dwell})", abs(blow - dwell) < 2.0)
+
+# bigger DWELL = longer blow, like a fan regulator
+blows = []
+for dwell in (5, 15, 30, 60):
+    ev, first = run_object(0, dwell)
+    ons = [e for e in ev if e[2] == "ON"]; offs = [e for e in ev if e[2] == "OFF"]
+    blows.append((offs[0][0] - ons[0][0]) * 1000.0 if ons and offs else 0.0)
+check("DWELL 5 < 15 < 30 < 60 gives longer and longer blows", all(x < y for x, y in zip(blows, blows[1:])),
+      " / ".join(f"{b:.1f}" for b in blows))
+
+# long object (6 frames = 75 ms) with DWELL 30: blast, memory gone, next blast while it is still seen
+ev, first = run_object(0, 30, frames_with_object=6)
+ons = [e for e in ev if e[2] == "ON"]
+check("long object, DWELL 30 -> a new blast after each finished one (memory cleared)", 2 <= len(ons) <= 3, str(len(ons)))
+ev, first = run_object(0, 100, frames_with_object=6)
+ons = [e for e in ev if e[2] == "ON"]
+check("long object, DWELL 100 -> one blast (it covers the whole object)", len(ons) == 1, str(len(ons)))
 
 feats(follow_delay_dwell_enabled=True)
-d = mk(0, 0); frame(d, "FRONT", [3]); time.sleep(0.05)
-check("STOP clears the follow-mode blasts", hasattr(d._timed_valves, "clear")); d._timed_valves.stop()
+d = mk(0, 10); frame(d, "FRONT", [3]); time.sleep(0.05)
+check("STOP clears the blasts", hasattr(d._timed_valves, "clear")); d._timed_valves.stop()
 
 print("\nALL TESTS PASSED" if not fails else f"FAILED: {fails}")
 sys.exit(1 if fails else 0)
