@@ -12993,6 +12993,18 @@ class MainDashboard(QMainWindow):
             return
         cnt = getattr(link, 'counters', {}) or {}
         we, re_ = int(cnt.get("write_errors", 0)), int(cnt.get("read_errors", 0))
+        if features.enabled("ejector_memory_clear_enabled"):
+            # 11 Nov 2026: the ESP32 prints its READY line again after a restart (power dip when many valves
+            # switch together = brown-out). It then has all valves OFF and NO watchdog -> PC forgets its valve
+            # memory and sends 'W' again; the count is shown on the main screen.
+            rs = int(cnt.get("esp_resets", 0))
+            prev_rs = getattr(self, '_esp_reset_prev', None)
+            self._esp_reset_prev = (id(link), rs)
+            if prev_rs is not None and prev_rs[0] == id(link) and rs > prev_rs[1]:
+                self._esp_reset_n = getattr(self, '_esp_reset_n', 0) + (rs - prev_rs[1])
+                self._live_hw_active = set()
+                self._wd_armed_t = 0.0
+                print(f"[EJECTOR LINK] ESP32 RESTARTED ({self._esp_reset_n}x) - power dip? check the 5 V / USB supply")
         prev = getattr(self, '_link_err_prev', None)
         self._link_err_prev = (id(link), we, re_)
         new_err = prev is not None and prev[0] == id(link) and (we > prev[1] or re_ > prev[2])
@@ -13001,7 +13013,9 @@ class MainDashboard(QMainWindow):
             if getattr(self, '_link_bad_since', None) is not None:
                 print(f"[EJECTOR LINK] OK again on {port}")
             self._link_bad_since = None
-            self._link_state = f"ESP32 OK{f' (link lost {lost_n}x)' if lost_n else ''}"
+            _rn = getattr(self, '_esp_reset_n', 0)
+            self._link_state = (f"ESP32 OK{f' (link lost {lost_n}x)' if lost_n else ''}"
+                                f"{f' | ESP32 RESTARTED {_rn}x' if _rn else ''}")
             return
         if getattr(self, '_link_bad_since', None) is None:
             self._link_bad_since = time.time()
@@ -13064,6 +13078,74 @@ class MainDashboard(QMainWindow):
         blasts = capture_timing.plan_blasts(frame_channels, (dec or {}).get("row_extents"), rows_used,
                                             frame_end, line_period, delay_ms, pulse_ms, sched.cfg)
         sched.add(blasts)
+
+    def _forget_old_channels(self, source):
+        """11 Nov 2026 (switch ejector_memory_clear_enabled). The valve memory is cleared as soon as it is old:
+        1. the OTHER camera's last channels are dropped when its last frame is older than 3 frame times (min 50 ms)
+           - before, a camera that stopped / disconnected while it saw an object kept that valve ON for ever
+           (FRONT frames kept re-sending it every 100 ms, so the esp.ino 250 ms watchdog never closed it);
+        2. after a gap of more than 0.2 s without frames from this camera the ESP32 watchdog has already closed
+           every valve, so the PC forgets them too (the next object is sent ON at once, not up to 100 ms later).
+        Example: object seen at 1.000 s -> valve ON; no camera sees it any more -> forgotten by ~1.05 s."""
+        now = time.perf_counter()
+        last_t = getattr(self, '_last_frame_t', {}) or {}
+        per_ms = getattr(self, '_frame_interval_ms', {}) or {}
+        for other in ("FRONT", "REAR"):
+            if other == source or not self._cam_active_channels.get(other):
+                continue
+            t_last = last_t.get(other)
+            limit = max(0.05, 3.0 * float(per_ms.get(other, 12.5)) / 1000.0)
+            if t_last is None or now - t_last > limit:
+                self._cam_active_channels[other] = set()
+        prev = getattr(self, '_last_eval_t', {}) or {}
+        t_prev = prev.get(source)
+        if t_prev is not None and now - t_prev > 0.2 and getattr(self, '_live_hw_active', None):
+            self._live_hw_active = set()
+        prev[source] = now
+        self._last_eval_t = prev
+
+    def _follow_delay_dwell_fire(self, link, source, frame_channels):
+        """11 Nov 2026 (switch follow_delay_dwell_enabled). Like the normal mode the valve follows the camera,
+        but the main-screen DELAY and DWELL are used:
+            valve ON  = (time the PC has found the object) + DELAY
+            valve OFF = ON + one frame time + margin + DWELL      (a new frame with the object extends it)
+        Example (frames every 12.5 ms, margin 4 ms): DELAY 0, DWELL 10 -> the valve opens at once and closes
+        10 ms after the last frame that still showed the object. DELAY 0 + DWELL 0 = like the old mode.
+        DELAY counts from the PC decision (not from the camera line), so a blast is never dropped as MISSED;
+        with the nozzle 47 mm below the line the PC is already late, so keep DELAY 0 there."""
+        sched = getattr(self, '_timed_valves', None)
+        if sched is None or not sched.is_alive() or getattr(sched, '_link', None) is not link:
+            if sched is not None:
+                sched.stop()
+            sched = capture_timing.TimedValveScheduler(link._write)
+            sched._link = link
+            sched.start()
+            self._timed_valves = sched
+            self._capture_clock = capture_timing.CaptureClock(sched.cfg)
+            print("[FOLLOW EJECT] DELAY/DWELL follow mode ACTIVE (DELAY after the PC decision, DWELL after the object)")
+        if getattr(self.esp32, 'ejector_test_active', False):
+            return
+        now = time.perf_counter()
+        if now - getattr(self, '_wd_armed_t', 0.0) >= 5.0:
+            link._write(b'W')                    # esp.ino safety watchdog: a channel never stays ON > 250 ms
+            self._wd_armed_t = now
+        if now - getattr(self, '_timed_cfg_t', 0.0) >= 0.5:
+            # recipe file read at most twice a second, also on EMPTY frames: the frame with the object then
+            # never waits for the disk read (that would open the valve late)
+            self._timed_delay_pulse = self.get_ejector_config()
+            self._timed_cfg_t = time.perf_counter()
+        if not frame_channels:
+            return
+        delay_ms, dwell_ms = self._timed_delay_pulse
+        try:
+            margin_ms = float(features.value("follow_frame_margin_ms", 4.0))
+        except Exception:
+            margin_ms = 4.0
+        period_ms = float((getattr(self, '_frame_interval_ms', {}) or {}).get(source, 12.5))
+        period_ms = max(2.0, min(100.0, period_ms))
+        t_on = now + max(0.0, float(delay_ms)) / 1000.0
+        t_off = t_on + (period_ms + max(0.0, margin_ms) + max(0.0, float(dwell_ms))) / 1000.0
+        sched.add([(int(ch), t_on, t_off) for ch in frame_channels])
 
     def evaluate_fusion_and_fire(self, source=None):
         f_dec = getattr(self, '_last_front_decision', None)
@@ -13156,6 +13238,8 @@ class MainDashboard(QMainWindow):
             if not hasattr(self, '_cam_active_channels'):
                 self._cam_active_channels = {"FRONT": set(), "REAR": set()}
             self._cam_active_channels[source] = set(frame_channels)
+            if features.enabled("ejector_memory_clear_enabled") and hasattr(self, '_forget_old_channels'):
+                self._forget_old_channels(source)
             
             # Fused hardware active channels: defect if FRONT sees it OR REAR sees it!
             current_active = self._cam_active_channels.get("FRONT", set()) | self._cam_active_channels.get("REAR", set())
@@ -13176,6 +13260,10 @@ class MainDashboard(QMainWindow):
                 if features.enabled("capture_timed_eject_enabled"):
                     # 2 Nov 2026: valve ON at (defect line scan time + recipe DELAY), blast = object + PULSE
                     self._capture_timed_fire(link, source, dec, frame_channels)
+                    return
+                if features.enabled("follow_delay_dwell_enabled"):
+                    # 11 Nov 2026: main-screen DELAY / DWELL really used (see _follow_delay_dwell_fire)
+                    self._follow_delay_dwell_fire(link, source, frame_channels)
                     return
                 if not hasattr(self, '_live_hw_active'):
                     self._live_hw_active = set()
@@ -13321,9 +13409,19 @@ class MainDashboard(QMainWindow):
 
     def restart_auto_wiper_timer(self):
         self.auto_clean_timer.stop()
+        # 11 Nov 2026 (switch auto_wiper_enabled, OFF by the user's decision): the automatic wiper paused the
+        # sorting for ~8 s every 6 minutes (looked like "ESP32 stops responding"). OFF = never automatic;
+        # the CLEAN button still runs the wiper by hand.
+        if not features.enabled("auto_wiper_enabled"):
+            return
         if self.system_running:
-            mins = self.wiper_settings.get('interval', 6)
-            self.auto_clean_timer.start(mins * 60000)
+            try:
+                mins = float(self.wiper_settings.get('interval', 6))
+            except Exception:
+                mins = 6.0
+            if mins <= 0:
+                return          # interval 0 = no automatic wipe (a 0 ms timer would restart the wiper forever)
+            self.auto_clean_timer.start(int(mins * 60000))
 
     def execute_auto_wiper_sequence(self, force=False):
         if not self.system_running and not force:
@@ -13400,6 +13498,7 @@ class MainDashboard(QMainWindow):
             print("[AUTO WIPER] Step 5: 2s elapsed, turning ON the feeder (Relay 1 = 1) & Ejector (Relay 2 = 1)...")
             self.feeder_data[0]['active'] = True
             if hasattr(self, 'esp32') and self.esp32 and self.esp32.connected:
+                self.esp32.set_relay(2, 1)      # 11 Nov 2026: main air back ON (the wipe switched it OFF)
                 self.esp32.set_relay(1, 1)
             self.on_master_feeder_val_changed(self.feeder_data[0]['value'])
             self.update_feeder_toggle_appearance()
@@ -14906,8 +15005,15 @@ class MainDashboard(QMainWindow):
         self._dd_btn["delay"].setText(f"{float(ej.get('delay', 100.0)):g}")
         self._dd_btn["pulse"].setText(f"{float(ej.get('pulse', 20.0)):g}")
         on = features.enabled("capture_timed_eject_enabled")
-        self.lbl_dd_state.setText(f"{getattr(self, 'current_program', '')}  |  auto-saved  |  " +
-                                  ("TIMED EJECT: ON - used" if on else "TIMED EJECT: OFF - not used yet"))
+        follow = features.enabled("follow_delay_dwell_enabled")
+        if on:
+            state = "TIMED EJECT: ON - used"
+        elif follow:
+            state = "FOLLOW MODE - DELAY + DWELL used"
+        else:
+            state = "NOT USED (valve follows the camera)"
+        on = on or follow
+        self.lbl_dd_state.setText(f"{getattr(self, 'current_program', '')}  |  auto-saved  |  " + state)
         self.lbl_dd_state.setStyleSheet("font-size: 12px; font-weight: bold; color: %s;" % ("#00e676" if on else "#ff9800"))
 
     def _dd_set(self, key, value):

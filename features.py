@@ -36,6 +36,14 @@ until you switch something on in  features_config.json  (restart the program aft
                                            -> reopen the same COM port automatically (state is always shown)
       "main_delay_dwell_controls": true    DELAY / DWELL (+/- and keypad, auto-saved) above START SYSTEM
                                            (ON by the user's decision, 3 Nov 2026)
+      "auto_wiper_enabled": false          automatic wiper every N minutes (it pauses sorting ~8 s each time).
+                                           OFF by the user's decision (11 Nov 2026); the CLEAN button still works
+      "ejector_memory_clear_enabled": true forget old valve memory: a stopped camera's channels after 3 frame
+                                           times, valves the ESP32 watchdog closed, ESP32 restarts (shown on
+                                           screen). ON by the user's decision (11 Nov 2026)
+      "follow_delay_dwell_enabled": false  valve follows the camera but uses the main-screen DELAY (after the PC
+                                           decision) and DWELL (extra ms after the object). Set DELAY 0 first!
+      "follow_frame_margin_ms": 4          follow mode: extra ms after one frame time so frames join into one blast
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -68,6 +76,10 @@ DEFAULTS = {
     "main_delay_dwell_controls": True,     # ON by the user's decision (3 Nov 2026): DELAY/DWELL above START SYSTEM
     "ejector_auto_reconnect": False,       # 3 Nov 2026: reopen the ejector COM port when the USB link drops
     "graph_test_same_as_sorting": True,    # ON by the user's decision (4 Nov 2026): graph test firing = START SYSTEM
+    "auto_wiper_enabled": False,           # OFF by the user's decision (11 Nov 2026): no automatic 8 s sorting pause
+    "ejector_memory_clear_enabled": True,  # ON by the user's decision (11 Nov 2026): old valve memory is forgotten
+    "follow_delay_dwell_enabled": False,   # 11 Nov 2026: main-screen DELAY/DWELL used in the normal follow mode
+    "follow_frame_margin_ms": 4.0,         # used by follow_delay_dwell_enabled
 }
 
 _cache = None

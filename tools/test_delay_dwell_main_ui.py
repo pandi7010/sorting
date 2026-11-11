@@ -89,7 +89,7 @@ try:
     d._dd_refresh()
     check("shows the recipe values (DELAY 2, DWELL 10)", d._dd_btn["delay"].text()=="2" and d._dd_btn["pulse"].text()=="10",
           f'{d._dd_btn["delay"].text()} / {d._dd_btn["pulse"].text()}')
-    check("says TIMED EJECT is OFF (values not used yet)", "OFF" in d.lbl_dd_state.text(), d.lbl_dd_state.text())
+    check("says the values are NOT USED (timed + follow mode off)", "NOT USED" in d.lbl_dd_state.text(), d.lbl_dd_state.text())
     d._dd_set("delay", "22")
     check("keypad 22 -> saved to recipe at once", STORE["schemes"]["RICE"]["ejector"]["delay"] == 22.0, str(STORE["schemes"]["RICE"]["ejector"]))
     check("other recipe keys kept (gap, count)", STORE["schemes"]["RICE"]["ejector"].get("gap") == 5.0)

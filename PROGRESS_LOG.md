@@ -2,6 +2,44 @@
 
 ---
 
+## 11 Nov 2026 - "ESP32 stops responding for a while" + "DELAY / DWELL do nothing" (`tools/test_esp32_free_sim.py`)
+
+User report: (1) after some minutes of running the valves stop for a while, then work again; (2) DELAY / DWELL on the
+main screen change nothing. User decisions: no automatic wiper; old valve memory must be deleted after firing so the
+ESP32 stays free; "you decide what makes DELAY / DWELL work".
+
+Causes found (code reading):
+- (1) the auto wiper (every 6 min) stops frame processing for ~8 s even when the relay board is offline. Also: a camera
+  that stops while it sees an object kept that valve ON for ever (its last channels stayed in the FRONT|REAR union and
+  were re-sent every 100 ms, so the esp.ino 250 ms watchdog never closed them). An ESP32 restart (brown-out when many
+  valves switch) was invisible. After a wipe the main air (relay 2) was never switched back ON (log said it was).
+- (2) with `capture_timed_eject_enabled` false the valve follows the camera and DELAY / DWELL are not used at all; with
+  it true the 47 mm nozzle is closer than the PC latency (blasts LATE / MISSED).
+
+Changes (switches in features.py):
+- `auto_wiper_enabled` **OFF (user's decision)**: no automatic wipe; CLEAN button still works; interval <= 0 never
+  starts a 0 ms timer. After a wipe relay 2 (main air) is switched back ON while running (bug fix, always).
+- `ejector_memory_clear_enabled` **ON (user's decision)**: `_forget_old_channels` drops the other camera's channels when
+  its last frame is older than 3 frame times (min 50 ms); after a 0.2 s gap without frames the PC forgets valves the
+  ESP32 watchdog already closed; `ejector_link.py` counts the ESP32 READY boot line (`counters["esp_resets"]`), the link
+  watch then clears the valve memory, re-sends 'W' and shows "ESP32 RESTARTED Nx" on the main screen.
+- `follow_delay_dwell_enabled` OFF (+ `follow_frame_margin_ms` 4): valve ON = PC decision + DELAY,
+  OFF = ON + frame time + margin + DWELL; new frames with the object extend the blast (one blast, no chatter).
+  The DELAY/DWELL row now says "NOT USED (valve follows the camera)" / "FOLLOW MODE - DELAY + DWELL used" / "TIMED".
+- `capture_timing.TimedValveScheduler`: a blast that is due now is switched ON at once by `add()` (waking the valve
+  thread cost 3-4 ms); valve bytes are written inside the scheduler lock (an ON can never be overtaken by an old OFF).
+  The follow mode reads the recipe also on empty frames, so the object frame never waits for the disk.
+
+Tests: new `tools/test_esp32_free_sim.py` ALL TESTS PASSED (3 runs; follow mode ON 0.1 ms / 20.1 ms after the frame
+for DELAY 0 / 20, OFF within 0.1 ms of frame + 4 + DWELL). RUN_ALL_TESTS on Windows: 24/27, the same 3 old failures
+(fusion_fix, line_sync_sim, port_detect_sim). `test_delay_dwell_main_ui.py` expects the new "NOT USED" text.
+
+**Needs the real machine:** blast position on the product with follow mode; how often "ESP32 RESTARTED" appears (if
+often: separate 5 V supply for the ESP32). Before switching follow mode ON on the machine set DELAY 0, DWELL ~10
+(the machine has 210 / 150 = 210 ms late).
+
+---
+
 ## 4 Nov 2026 - SENSITIVITY / PURITY / SCALE / SIZE limits checked (`tools/test_algo_params_sim.py`)
 
 - App walk-through on the machine (AnyDesk): all dialogs open; ejector SINGLE PULSE acked; START/STOP fine, ESP32 OK.

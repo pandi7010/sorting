@@ -421,6 +421,8 @@ class EjectorLink:
                 frames, lines = self._parser.feed(data)
                 for line in lines:
                     self.text_lines.append(line)
+                    if "_READY" in line:              # 11 Nov 2026: ESP32 boot line = the board restarted
+                        self.counters["esp_resets"] += 1
                     if self._probe_lines is not None:
                         self._probe_lines.append(line)
                     self.counters["text_lines"] += 1

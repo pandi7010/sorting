@@ -171,6 +171,7 @@ class TimedValveScheduler(threading.Thread):
         now = self.clock()
         tol = float(self.cfg["late_tolerance_ms"]) / 1000.0
         with self._lock:
+            now_on = []
             for ch, t_on, t_off in blasts:
                 if not (1 <= ch <= 63):
                     continue
@@ -185,7 +186,20 @@ class TimedValveScheduler(threading.Thread):
                     t_on = now
                 else:
                     self.stats["on_time"] += 1
-                self._push(t_on, 1, ch, t_off)       # ON event carries its own OFF time
+                if t_on <= now + 0.0005:
+                    # 11 Nov 2026: due now -> ON from this thread at once (waking the valve thread cost ~3 ms)
+                    if ch in self._on_hw:
+                        self.stats["merged"] += 1
+                        self._off_at[ch] = max(self._off_at.get(ch, 0.0), t_off)
+                    else:
+                        self._on_hw.add(ch)
+                        self._off_at[ch] = t_off
+                        now_on.append(ch)
+                    self._push(t_off, 0, ch)
+                else:
+                    self._push(t_on, 1, ch, t_off)       # ON event carries its own OFF time
+            if now_on:
+                self.write_fn(bytes(sorted(now_on)))     # inside the lock: never mixed up with an OFF write
         self._wake.set()
 
     def clear(self, send_off=True):
@@ -244,10 +258,12 @@ class TimedValveScheduler(threading.Thread):
                             self._off_at.pop(ch, None)
                             to_off.append(ch)
                 nxt = self._heap[0][0] if self._heap else None
-            if to_on:
-                self.write_fn(bytes(sorted(to_on)))
-            if to_off:
-                self.write_fn(bytes([c + 100 for c in sorted(to_off)]))
+                # 11 Nov 2026: written inside the lock, so an ON sent at once by add() can never be followed
+                # by an older OFF decision for the same channel
+                if to_on:
+                    self.write_fn(bytes(sorted(to_on)))
+                if to_off:
+                    self.write_fn(bytes([c + 100 for c in sorted(to_off)]))
             # 3 Nov 2026: esp.ino closes any valve that was not re-sent ON within 250 ms (watchdog 'W').
             # A long object (or a wire held in front of the camera) merges into one long blast that sends ON only
             # once - so re-send the channels that are still ON every 100 ms, like the level-following path does.
