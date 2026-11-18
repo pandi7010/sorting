@@ -28,6 +28,7 @@ import ejector_link as el
 
 EJECTOR_BAUD = el.BINARY_BAUD          # 115200 (v2.3 and the old text firmware)
 OLD_EJECTOR_BAUD = el.OLD_BINARY_BAUD  # 921600 (v2.0 - v2.2)
+ESP_BYTE_BAUD = el.ESP_BYTE_BAUD       # 230400 (esp.ino byte firmware, 18 Nov 2026) - tried first
 RELAY_BAUD = 9600
 
 # probe times in seconds (tests make them short)
@@ -176,7 +177,7 @@ def _binary_identify(s):
 def probe_ejector(port, try_old_baud=True):
     """Result(EJECTOR / LEGACY) if this port is an ejector board, Result(BUSY/ERROR) if it cannot be opened,
     None if it did not answer as an ejector (nothing is sent that could switch anything)."""
-    steps = [(EJECTOR_BAUD, TIMING["ejector"])]
+    steps = [(ESP_BYTE_BAUD, TIMING["ejector"]), (EJECTOR_BAUD, TIMING["ejector"])]
     if try_old_baud:
         steps.append((OLD_EJECTOR_BAUD, TIMING["ejector_old"]))
     for baud, wait_s in steps:
@@ -199,8 +200,10 @@ def probe_ejector(port, try_old_baud=True):
                 detail = (f"ejector firmware v{fw[0]}.{fw[1]}" + (f", pin profile {prof}" if prof else "")
                           + (f", board {bid}" if bid else "") + (" (OLDER: runs at 921600, upload v2.3)" if older else ""))
                 return Result(port, EJECTOR, fw=fw, profile=prof, id=bid, baud=baud, detail=detail)
-            if (b"ACK:PING" in buf or b"ESP32_ALIVE" in buf) and baud == EJECTOR_BAUD:
-                detail = "ESP32 63-CH Ejector (esp.py protocol)" if b"ESP32_ALIVE" in buf else "OLD text ejector firmware (ESP32_63CH_ShiftRegister)"
+            if b"ESP32_ALIVE" in buf and baud in (ESP_BYTE_BAUD, EJECTOR_BAUD):
+                return Result(port, EJECTOR, baud=baud, detail=f"ESP32 63-CH Ejector (esp.py protocol, {baud} baud)")
+            if b"ACK:PING" in buf and baud == EJECTOR_BAUD:
+                detail = "OLD text ejector firmware (ESP32_63CH_ShiftRegister)"
                 return Result(port, EJECTOR, baud=baud, detail=detail)
         finally:
             _close(s)

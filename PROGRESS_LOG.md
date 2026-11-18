@@ -2,6 +2,16 @@
 
 ---
 
+## 18 Nov 2026 (afternoon) - PC talks to the ejector ESP32 at 230400 baud (user's decision)
+
+- `ejector_link.py`: new `ESP_BYTE_BAUD = 230400`; `connect()` probes 230400 -> 115200 -> 921600, so boards that
+  still run 115200 / 921600 firmware connect as before (~1.5 s later). `port_detect.py`: same order; ESP32_ALIVE
+  accepted at 230400 and 115200. Start-up check shows the real baud. New `tools/test_baud_230400_sim.py`:
+  ALL TESTS PASSED (simulated port). `esp.ino` (Serial.begin(230400)) was edited on this PC by the user / another
+  tool, not committed here. **Needs the real machine:** upload esp.ino at 230400, pull, check ONLINE (230400).
+
+---
+
 ## 18 Nov 2026 - camera SDK missing (Err 126) + auto-start started the old exe
 
 - Both PCs: dialog "Failed to load file C:\Program Files (x86)\MindVision\SDK\X64\MVCAMSDK_X64.dll ... Err 126", black

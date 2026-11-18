@@ -54,6 +54,7 @@ STATUS_FIELDS = ["rx_ok", "crc_err", "len_err", "unknown_type", "seq_gaps", "fir
 NUM_CHANNELS = 63
 BINARY_BAUD = 115200             # v2.3 (and the old text firmware: told apart by protocol, see connect())
 OLD_BINARY_BAUD = 921600         # v2.0 - v2.2 only
+ESP_BYTE_BAUD = 230400           # 18 Nov 2026: esp.ino byte firmware at 230400 (user's decision); tried FIRST
 LEGACY_BAUD = 115200
 HEARTBEAT_S = 0.100
 ACK_TIMEOUT_S = 0.100
@@ -220,15 +221,17 @@ class EjectorLink:
              reply contains "PONG:LAMTON_EJECTOR_V"  -> v2.x firmware -> binary handshake (STATUS reply)
              reply is only "ACK:PING"                 -> OLD text firmware -> LEGACY mode
            (the old firmware never receives binary bytes, and a v2.x board is never taken for legacy)
-        2. nothing answered: text PING at 921600 -> v2.0 - v2.2 firmware (older, binary at 921600)."""
+        2. nothing answered: text PING at 921600 -> v2.0 - v2.2 firmware (older, binary at 921600).
+        18 Nov 2026: before step 1 the same probe at ESP_BYTE_BAUD (230400, esp.ino byte firmware). A board
+        with 115200 / 921600 firmware does not answer there and is then found as before (~1.5 s later)."""
         self.close()
-        for baud, wait_s in ((BINARY_BAUD, boot_wait_s), (OLD_BINARY_BAUD, 1.5)):
+        for baud, wait_s in ((ESP_BYTE_BAUD, boot_wait_s), (BINARY_BAUD, 1.5), (OLD_BINARY_BAUD, 1.5)):
             kind = self._probe(baud, wait_s)
             if kind in ("BINARY", "LEGACY", "ESP_BYTE"):
                 return self.mode
             if kind == "FAIL":                      # port cannot be opened / v2.x found but binary silent
                 return None
-        self.text_lines.append(f"[LINK] {self.port}: no ejector firmware answered (115200 or 921600 baud)")
+        self.text_lines.append(f"[LINK] {self.port}: no ejector firmware answered (230400, 115200 or 921600 baud)")
         return None
 
     def _probe(self, baud, wait_s):
@@ -295,7 +298,7 @@ class EjectorLink:
         if esp_byte:
             self.mode = "ESP_BYTE"
             self._write(bytes([0]))  # Send ALL OFF initial reset
-            self.text_lines.append(f"[LINK] {self.port}: ESP32 63-CH Ejector (esp.py byte protocol)")
+            self.text_lines.append(f"[LINK] {self.port}: ESP32 63-CH Ejector (esp.py byte protocol, {baud} baud)")
             return "ESP_BYTE"
         if legacy:
             self.mode = "LEGACY"

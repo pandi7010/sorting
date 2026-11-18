@@ -7012,7 +7012,8 @@ class WelcomeOverlay(QWidget):
             ej_ok = bool(esp and hasattr(esp, 'is_ejector_connected') and esp.is_ejector_connected())
             ej_port = getattr(esp, 'ejector_port', None) or ""
             if ej_ok:
-                self.lbl_check_esp.setText(f"🟢 3. ESP32 Ejector Board (63-CH): ONLINE ({ej_port} - 115200 Baud)")
+                _ej_baud = getattr(getattr(esp, 'ejector_link', None), 'baud', None) or 115200
+                self.lbl_check_esp.setText(f"🟢 3. ESP32 Ejector Board (63-CH): ONLINE ({ej_port} - {_ej_baud} Baud)")
                 self.lbl_check_esp.setStyleSheet("color: #00e676; font-size: 13px; font-weight: bold;")
             else:
                 self.lbl_check_esp.setText("🔴 3. ESP32 Ejector Board (63-CH): OFFLINE (no ejector found - see COM PORTS)")
