@@ -46,6 +46,8 @@ until you switch something on in  features_config.json  (restart the program aft
                                            Set DELAY 0 first (47 mm nozzle)!
       "frame_rate_display": true           FRONT / BACK FRAME RATE rows (fps + lines/s) below the main-screen
                                            status block. ON by the user's request (18 Nov 2026); display only
+      "pipeline_metrics_enabled": true     LOST FRAMES / BACKLOG / EJECT (SENT/DET) / NOT SENT rows below the frame
+                                           rate (display only). ON by the user's request (18 Nov 2026)
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -81,6 +83,7 @@ DEFAULTS = {
     "auto_wiper_enabled": False,           # OFF by the user's decision (11 Nov 2026): no automatic 8 s sorting pause
     "ejector_memory_clear_enabled": True,  # ON by the user's decision (11 Nov 2026): old valve memory is forgotten
     "frame_rate_display": True,            # ON by the user's request (18 Nov 2026): fps + lines/s in the status block
+    "pipeline_metrics_enabled": True,      # ON by the user's request (18 Nov 2026): lost frames / backlog / not sent
     "follow_delay_dwell_enabled": False,   # 11 Nov 2026: DELAY = wait, DWELL = exact blow time (0 = no blow)
 }
 

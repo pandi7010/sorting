@@ -2,6 +2,17 @@
 
 ---
 
+## 18 Nov 2026 (evening 2) - pipeline metrics on the main screen (user's request)
+
+- Four rows below the FRAME RATE rows (switch `pipeline_metrics_enabled`, ON by the user's request, display only):
+  LOST FRAMES = SDK `CameraGetFrameStatistic().iLost` + gaps in the camera timestamps; BACKLOG = avg/max ms that
+  frames reach the PC later than usual (age = PC time - camera time, usual = smallest of the last 30-60 s) + RAM;
+  EJECT (SENT/DET) = new defects (channel newly active, FRONT|REAR) vs valve ON sent; NOT SENT by reason (busy,
+  dwell 0, test panel, link down, usb err). Counters reset at START. `tools/test_pipeline_metrics_sim.py` ALL TESTS
+  PASSED. **Needs the real machine:** SDK lost counter, real backlog, row layout in the status box.
+
+---
+
 ## 18 Nov 2026 (evening) - FRONT / BACK FRAME RATE on the main screen (user's request)
 
 - Two rows below WIPER STATUS: e.g. `78.1 fps  (5,000 lines/s)` = 1000 / time between frames (camera timestamps,

@@ -66,6 +66,7 @@ import copy
 from relay import RelayController
 from ejector_link import EjectorLink
 import port_detect                              # finds the ejector / relay / feeder on ANY COM port by their replies
+import collections
 import features                                  # Phase 2+: ON/OFF switches (all OFF by default)
 import capture_timing                            # capture-timed ejection (switch capture_timed_eject_enabled, OFF)
 from timing_log import get_logger as _get_timing_logger
@@ -1232,6 +1233,46 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
 
 from PyQt5.QtCore import Qt, QTimer, QDateTime, pyqtSignal, QRectF, QPointF, QRect, QPoint
 from PyQt5.QtGui import QFont, QPixmap, QImage, QPainter, QPen, QColor, QRadialGradient, QLinearGradient, QBrush, QCursor, QPainterPath
+
+def _ejm_add(obj, key, n=1):
+    """18 Nov 2026: add to the EJECT / NOT SENT counters of a MainDashboard (works on any object)."""
+    m = getattr(obj, '_ejm', None)
+    if m is None:
+        m = collections.Counter()
+        try:
+            obj._ejm = m
+        except Exception:
+            return
+    m[key] += n
+
+
+def _frame_metrics(w, ts, t_arrive):
+    """18 Nov 2026 (switch pipeline_metrics_enabled), called in the camera thread for every frame BEFORE the
+    worker updates _prev_cam_ts / period_ms:
+      m_gap_frames - frames missing between two received frames (camera timestamp jump > 1.5 frame times)
+      m_lag_ms / m_lag_max - how much later than usual the frame reached the PC (backlog in the buffer):
+                             age = PC time - camera time; the smallest age of the last 30-60 s is 'usual'."""
+    try:
+        pts = getattr(w, '_prev_cam_ts', None)
+        per = getattr(w, 'period_ms', None)
+        if pts is not None and per and per > 0:
+            dt = (ts - pts) * 0.1                          # camera timestamp unit = 0.1 ms
+            if 1.5 * per < dt < 2000.0:
+                w.m_gap_frames = getattr(w, 'm_gap_frames', 0) + max(1, int(round(dt / per)) - 1)
+        age = t_arrive * 1000.0 - ts * 0.1
+        if t_arrive - getattr(w, 'm_win_t', 0.0) > 30.0:
+            w.m_prev_min = getattr(w, 'm_win_min', age)
+            w.m_win_min = age
+            w.m_win_t = t_arrive
+        else:
+            w.m_win_min = min(getattr(w, 'm_win_min', age), age)
+        base = min(getattr(w, 'm_win_min', age), getattr(w, 'm_prev_min', age))
+        lag = max(0.0, age - base)
+        w.m_lag_ms = lag if getattr(w, 'm_lag_ms', None) is None else 0.9 * w.m_lag_ms + 0.1 * lag
+        w.m_lag_max = max(getattr(w, 'm_lag_max', 0.0), lag)
+    except Exception:
+        pass
+
 
 # --- MVSDK (CAMERA) LIBRARY ---
 try:
@@ -9527,6 +9568,8 @@ class GigECameraWorker(QThread):
                     # open AND close late (shown on the main-screen LED line as "CAM LOAD").
                     _busy = (time.perf_counter() - _t_arrive) * 1000.0
                     self.busy_ms = _busy if getattr(self, 'busy_ms', None) is None else 0.9 * self.busy_ms + 0.1 * _busy
+                    if features.enabled("pipeline_metrics_enabled"):
+                        _frame_metrics(self, int(FrameHead.uiTimeStamp), _t_arrive)
                     _ts = int(FrameHead.uiTimeStamp)
                     _pts = getattr(self, '_prev_cam_ts', None)
                     self._prev_cam_ts = _ts
@@ -13125,7 +13168,10 @@ class MainDashboard(QMainWindow):
             self._capture_clock = capture_timing.CaptureClock(sched.cfg)
             self._follow_busy_until = {}
             print("[FOLLOW EJECT] DELAY/DWELL mode ACTIVE (wait DELAY ms, then blow exactly DWELL ms)")
+        _new = getattr(self, '_m_new', None) or set()
         if getattr(self.esp32, 'ejector_test_active', False):
+            if _new:
+                _ejm_add(self, "test panel", len(_new))
             return
         now = time.perf_counter()
         if now - getattr(self, '_wd_armed_t', 0.0) >= 5.0:
@@ -13142,6 +13188,8 @@ class MainDashboard(QMainWindow):
         delay_s = max(0.0, float(delay_ms)) / 1000.0
         dwell_s = max(0.0, float(dwell_ms)) / 1000.0
         if dwell_s <= 0.0:
+            if _new:
+                _ejm_add(self, "dwell 0", len(_new))
             return                               # DWELL 0 = the valve never blows
         busy = getattr(self, '_follow_busy_until', None)
         if busy is None:
@@ -13150,11 +13198,15 @@ class MainDashboard(QMainWindow):
         for ch in frame_channels:
             ch = int(ch)
             if now < busy.get(ch, 0.0):
+                if ch in _new:
+                    _ejm_add(self, "busy", 1)
                 continue                         # this channel's blast is still waiting / blowing
             t_on = now + delay_s
             t_off = t_on + dwell_s
             busy[ch] = t_off                     # memory of this blast, forgotten when it is over
             blasts.append((ch, t_on, t_off))
+            if ch in _new:
+                _ejm_add(self, "sent", 1)
         if blasts:
             sched.add(blasts)
 
@@ -13254,6 +13306,15 @@ class MainDashboard(QMainWindow):
             
             # Fused hardware active channels: defect if FRONT sees it OR REAR sees it!
             current_active = self._cam_active_channels.get("FRONT", set()) | self._cam_active_channels.get("REAR", set())
+            # 18 Nov 2026 (switch pipeline_metrics_enabled): a NEW defect = a channel that was not active before
+            if features.enabled("pipeline_metrics_enabled"):
+                _prev_act = getattr(self, '_m_prev_active', set())
+                self._m_new = set(current_active) - _prev_act
+                self._m_prev_active = set(current_active)
+                if self._m_new:
+                    _ejm_add(self, "detected", len(self._m_new))
+            else:
+                self._m_new = set()
 
             # Real-time 1:1 Operating LED Bar update on EVERY frame (clears immediately when no defect)
             _lb = getattr(self, 'live_led_bar', None)
@@ -13270,6 +13331,8 @@ class MainDashboard(QMainWindow):
             if link and getattr(link, 'is_open', False) and getattr(link, 'mode', None) == "ESP_BYTE":
                 if features.enabled("capture_timed_eject_enabled"):
                     # 2 Nov 2026: valve ON at (defect line scan time + recipe DELAY), blast = object + PULSE
+                    if self._m_new:
+                        _ejm_add(self, "sent", len(self._m_new))     # timed: LATE / MISSED in its own stats
                     self._capture_timed_fire(link, source, dec, frame_channels)
                     return
                 if features.enabled("follow_delay_dwell_enabled"):
@@ -13304,6 +13367,8 @@ class MainDashboard(QMainWindow):
                     link._write(bytes([ch + 100 for ch in to_turn_off]) + bytes(newly_on))
                     newly_on, to_turn_off = [], []
 
+                if self._m_new:
+                    _ejm_add(self, "sent", len(self._m_new))          # level-follow: valve is ON for it
                 if newly_on:
                     for ch in newly_on:
                         self._live_hw_active.add(ch)
@@ -13314,6 +13379,9 @@ class MainDashboard(QMainWindow):
                         self._live_hw_active.discard(ch)
                     link._write(bytes([ch + 100 for ch in to_turn_off]))
             else:
+                if getattr(self, '_m_new', None):
+                    _ok = bool(link and getattr(link, 'is_open', False))
+                    _ejm_add(self, "sent" if _ok else "link down", len(self._m_new))
                 # Fallback for non-ESP_BYTE modes (e.g. BINARY firmware or line sync)
                 if getattr(self, 'line_sync', None) and self.line_sync.active():
                     meta = getattr(self, '_frame_meta', {}).get(source)
@@ -13371,6 +13439,8 @@ class MainDashboard(QMainWindow):
         if getattr(self, '_capture_clock', None):
             self._capture_clock.reset()
         self._follow_busy_until = {}
+        self._ejm = collections.Counter()           # 18 Nov 2026: EJECT / NOT SENT rows count from START
+        self._m_prev_active = set()
         if hasattr(self, 'eject_scheduler') and self.eject_scheduler:
             with self.eject_scheduler.lock:
                 self.eject_scheduler.queue.clear()
@@ -14521,6 +14591,28 @@ class MainDashboard(QMainWindow):
             self._fps_timer = QTimer(self)
             self._fps_timer.timeout.connect(self._update_frame_rate_labels)
             self._fps_timer.start(1000)
+        if features.enabled("pipeline_metrics_enabled"):
+            # 18 Nov 2026 (user's request): lost frames, buffer backlog, detected-but-not-sent (display only)
+            self.lbl_status_lost = QLabel("--")
+            self.lbl_status_backlog = QLabel("--")
+            self.lbl_status_eject = QLabel("--")
+            self.lbl_status_notsent = QLabel("--")
+            for _l in (self.lbl_status_lost, self.lbl_status_backlog, self.lbl_status_eject, self.lbl_status_notsent):
+                _l.setStyleSheet("color: #888; font-weight: bold; font-size: 11px;")
+            self.lbl_status_lost.setToolTip("Frames lost: SDK lost-frame counter (network / driver) + gaps in the "
+                                            "camera timestamps. Since the program started.")
+            self.lbl_status_backlog.setToolTip("How much later than usual frames reach the PC (avg / max in the last "
+                                               "second). Rising = frames wait in the buffer = PC behind. + PC memory.")
+            self.lbl_status_eject.setToolTip("Since START: new defects found (detected) and valve ON sent to the ESP32.")
+            self.lbl_status_notsent.setToolTip("Detected but no valve ON sent, by reason: busy = that valve's blast was "
+                                               "still running, dwell 0, test panel open, link down, usb errors.")
+            add_status_row("LOST FRAMES:", self.lbl_status_lost)
+            add_status_row("BACKLOG:", self.lbl_status_backlog)
+            add_status_row("EJECT (SENT/DET):", self.lbl_status_eject)
+            add_status_row("NOT SENT:", self.lbl_status_notsent)
+            self._metrics_timer = QTimer(self)
+            self._metrics_timer.timeout.connect(self._update_metric_labels)
+            self._metrics_timer.start(1000)
         
         status_card_layout.addWidget(status_box)
         layout.addWidget(status_card)
@@ -14887,6 +14979,84 @@ class MainDashboard(QMainWindow):
         fps = 1000.0 / float(p)
         rows = int(meta.get("height") or meta.get("rows_used") or 0)
         return f"{fps:.1f} fps  ({fps * rows:,.0f} lines/s)" if rows > 0 else f"{fps:.1f} fps"
+
+    def _ej_metrics(self):
+        """18 Nov 2026: counters since START for the EJECT / NOT SENT rows (camera threads add, GUI reads)."""
+        m = getattr(self, '_ejm', None)
+        if m is None:
+            m = self._ejm = collections.Counter()
+        return m
+
+    def _metric_texts(self):
+        """Returns [(text, colour), ...] for LOST FRAMES, BACKLOG, EJECT, NOT SENT."""
+        green, orange, red, grey = "#00e676", "#ffa726", "#ff1744", "#888"
+        out = []
+        # 1. lost frames
+        parts, worst = [], 0
+        for tag, w in (("F", getattr(self, 'camera_worker_front', None)), ("R", getattr(self, 'camera_worker_rear', None))):
+            h = getattr(w, 'camera_handle', None) if w is not None else None
+            if h is None:
+                parts.append(f"{tag} --")
+                continue
+            lost = None
+            try:
+                lost = int(mvsdk.CameraGetFrameStatistic(h).iLost)
+            except Exception:
+                lost = None
+            gap = int(getattr(w, 'm_gap_frames', 0) or 0)
+            n = (lost or 0) + gap
+            worst = max(worst, n)
+            parts.append(f"{tag} {lost if lost is not None else '?'}" + (f" +{gap} gap" if gap else ""))
+        out.append(("   ".join(parts), red if worst else green))
+        # 2. backlog + memory
+        parts, col = [], green
+        for tag, w in (("F", getattr(self, 'camera_worker_front', None)), ("R", getattr(self, 'camera_worker_rear', None))):
+            lag = getattr(w, 'm_lag_ms', None) if w is not None else None
+            if lag is None:
+                parts.append(f"{tag} --")
+                continue
+            mx = float(getattr(w, 'm_lag_max', 0.0) or 0.0)
+            w.m_lag_max = 0.0                                   # max of the last second
+            per = float(getattr(w, 'period_ms', 0.0) or 0.0)
+            parts.append(f"{tag} {lag:.1f}/{mx:.1f}")
+            if per and lag > 0.5 * per:
+                col = red
+            elif mx > 3.0 and col != red:
+                col = orange
+        txt = "   ".join(parts) + " ms"
+        try:
+            import psutil
+            txt += f"  |  {psutil.Process().memory_info().rss / 1048576:.0f} MB"
+        except Exception:
+            pass
+        out.append((txt, col if any("--" not in p for p in parts) else grey))
+        # 3. detected -> sent, 4. not sent by reason
+        m = self._ej_metrics()
+        det, sent = int(m.get("detected", 0)), int(m.get("sent", 0))
+        out.append((f"{sent} / {det}", green if sent >= det else orange))
+        link = getattr(getattr(self, 'esp32', None), 'ejector_link', None)
+        usb = int((getattr(link, 'counters', {}) or {}).get("write_errors", 0)) if link is not None else 0
+        reasons = [(k, int(v)) for k, v in m.items() if k not in ("detected", "sent") and v]
+        if usb:
+            reasons.append(("usb err", usb))
+        n_not = sum(v for k, v in reasons if k != "usb err")
+        if reasons:
+            out.append((f"{n_not}  (" + ", ".join(f"{k} {v}" for k, v in reasons) + ")", red if usb else orange))
+        else:
+            out.append(("0", green))
+        return out
+
+    def _update_metric_labels(self):
+        labels = [getattr(self, n, None) for n in ("lbl_status_lost", "lbl_status_backlog", "lbl_status_eject",
+                                                    "lbl_status_notsent")]
+        try:
+            texts = self._metric_texts()
+        except Exception as exc:
+            texts = [(f"error: {exc}"[:40], "#888")] * 4
+        for lbl, (txt, col) in zip(labels, texts):
+            if lbl is not None:
+                lbl.setText(txt)
+                lbl.setStyleSheet(f"color: {col}; font-weight: bold; font-size: 11px;")
 
     def _update_frame_rate_labels(self):
         for w_name, lbl_name in (("camera_worker_front", "lbl_status_fps_front"),
