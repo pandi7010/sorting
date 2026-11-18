@@ -2,6 +2,20 @@
 
 ---
 
+## 18 Nov 2026 - camera SDK missing (Err 126) + auto-start started the old exe
+
+- Both PCs: dialog "Failed to load file C:\Program Files (x86)\MindVision\SDK\X64\MVCAMSDK_X64.dll ... Err 126", black
+  screen. `C:\Program Files (x86)\MindVision` only held `Camera\log` - the SDK had been removed (cause unknown; no
+  Quick Heal on either PC). Reinstalled from `E:\LAMTON_V2_DEPLOY_v3\drivers\MindVision Camera Platform
+  Setup(2.1.10.195_202604021438).exe` on both PCs; machine: FRONT + REAR ONLINE, CAM LOAD F 1.0/12.9 R 1.1/12.6 ms.
+- Machine still showed errors after a restart only: the Startup shortcut LAMTON_COLOUR_SORTER.lnk ran
+  `D:\lambton-vision\sorting\LAMTON_COLOUR_SORTER.exe` (old build). With the user's OK it now runs
+  `START_LAMTON_SORTER.bat` (Start in = the sorting folder); the exe is kept. Restart test: starts properly.
+- `SETUP_AUTOSTART.bat` (user's OK) now creates that same shortcut to START_LAMTON_SORTER.bat and renames an old
+  LamptonApp.lnk to .lnk.old (not deleted). `create_shortcut.vbs` (points to d:\LAMTON_V1) left unchanged - do not use.
+
+---
+
 ## 11 Nov 2026 (evening) - DWELL = exact blow time, like a fan regulator (user's request)
 
 - User: "DWELL 0 must not blow; 1, 2, 3 ... longer" (fan regulator). The first follow mode kept the valve open while
