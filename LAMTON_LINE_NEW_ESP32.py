@@ -14510,6 +14510,17 @@ class MainDashboard(QMainWindow):
         add_status_row("FEEDER STATUS:", self.lbl_status_feeder)
         add_status_row("EJECTOR STATUS:", self.lbl_status_ejector)
         add_status_row("WIPER STATUS:", self.lbl_status_wiper)
+        if features.enabled("frame_rate_display"):
+            # 18 Nov 2026 (user's request): camera frame rate + line rate, from the camera's own frame timestamps
+            self.lbl_status_fps_front = QLabel("--")
+            self.lbl_status_fps_rear = QLabel("--")
+            for _l in (self.lbl_status_fps_front, self.lbl_status_fps_rear):
+                _l.setStyleSheet("color: #888; font-weight: bold; font-size: 11px;")
+            add_status_row("FRONT FRAME RATE:", self.lbl_status_fps_front)
+            add_status_row("BACK FRAME RATE:", self.lbl_status_fps_rear)
+            self._fps_timer = QTimer(self)
+            self._fps_timer.timeout.connect(self._update_frame_rate_labels)
+            self._fps_timer.start(1000)
         
         status_card_layout.addWidget(status_box)
         layout.addWidget(status_card)
@@ -14862,6 +14873,37 @@ class MainDashboard(QMainWindow):
                 self.esp32.set_relay(1, 1)
                 self.esp32.set_vibrator(1, pwm)
                 print("[FEEDER] 1 Second Completed: Vibrator (Relay 1) turned ON.")
+
+    def _frame_rate_text(self, w):
+        """18 Nov 2026: e.g. '78.1 fps (4,998 lines/s)' for one camera worker, or None when no frame came in the
+        last 2 s. fps = 1000 / time between frames (camera timestamps, smoothed); lines/s = fps x frame height."""
+        if w is None:
+            return None
+        p = getattr(w, 'period_ms', None)
+        meta = getattr(w, 'last_meta', None) or {}
+        t_last = meta.get("t_arrive")
+        if not p or p <= 0 or t_last is None or time.perf_counter() - t_last > 2.0:
+            return None
+        fps = 1000.0 / float(p)
+        rows = int(meta.get("height") or meta.get("rows_used") or 0)
+        return f"{fps:.1f} fps  ({fps * rows:,.0f} lines/s)" if rows > 0 else f"{fps:.1f} fps"
+
+    def _update_frame_rate_labels(self):
+        for w_name, lbl_name in (("camera_worker_front", "lbl_status_fps_front"),
+                                 ("camera_worker_rear", "lbl_status_fps_rear")):
+            lbl = getattr(self, lbl_name, None)
+            if lbl is None:
+                continue
+            try:
+                txt = self._frame_rate_text(getattr(self, w_name, None))
+            except Exception:
+                txt = None
+            if txt:
+                lbl.setText(txt)
+                lbl.setStyleSheet("color: #00e676; font-weight: bold; font-size: 11px;")
+            else:
+                lbl.setText("-- (no frames)")
+                lbl.setStyleSheet("color: #888; font-weight: bold; font-size: 11px;")
 
     def update_live_status_panel(self):
         # 1. ESP32 BOARD

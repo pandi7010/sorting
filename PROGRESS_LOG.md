@@ -2,6 +2,15 @@
 
 ---
 
+## 18 Nov 2026 (evening) - FRONT / BACK FRAME RATE on the main screen (user's request)
+
+- Two rows below WIPER STATUS: e.g. `78.1 fps  (5,000 lines/s)` = 1000 / time between frames (camera timestamps,
+  smoothed) and x frame height; `-- (no frames)` when no frame came for 2 s. Refreshed every 1 s. Switch
+  `frame_rate_display` ON (user's request), display only. `tools/test_frame_rate_display.py` ALL TESTS PASSED.
+- `tools/test_delay_pipeline_sim.py`: keypad -> recipe -> valve bytes checked end to end, ALL TESTS PASSED.
+
+---
+
 ## 18 Nov 2026 (afternoon) - PC talks to the ejector ESP32 at 230400 baud (user's decision)
 
 - `ejector_link.py`: new `ESP_BYTE_BAUD = 230400`; `connect()` probes 230400 -> 115200 -> 921600, so boards that

@@ -44,6 +44,8 @@ until you switch something on in  features_config.json  (restart the program aft
       "follow_delay_dwell_enabled": false  main-screen DELAY / DWELL like a fan regulator: wait DELAY ms after the
                                            PC found the object, then blow exactly DWELL ms (DWELL 0 = no blow).
                                            Set DELAY 0 first (47 mm nozzle)!
+      "frame_rate_display": true           FRONT / BACK FRAME RATE rows (fps + lines/s) below the main-screen
+                                           status block. ON by the user's request (18 Nov 2026); display only
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -78,6 +80,7 @@ DEFAULTS = {
     "graph_test_same_as_sorting": True,    # ON by the user's decision (4 Nov 2026): graph test firing = START SYSTEM
     "auto_wiper_enabled": False,           # OFF by the user's decision (11 Nov 2026): no automatic 8 s sorting pause
     "ejector_memory_clear_enabled": True,  # ON by the user's decision (11 Nov 2026): old valve memory is forgotten
+    "frame_rate_display": True,            # ON by the user's request (18 Nov 2026): fps + lines/s in the status block
     "follow_delay_dwell_enabled": False,   # 11 Nov 2026: DELAY = wait, DWELL = exact blow time (0 = no blow)
 }
 
