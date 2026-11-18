@@ -2,6 +2,17 @@
 
 ---
 
+## 18 Nov 2026 (evening 3) - PARTICLE SPEED row (user's request)
+
+- Estimate in the camera thread, every 8th frame, AFTER sorting (never delays a valve): particles that start and
+  end inside the frame; v = width_mm x speed_length_to_width / (height_lines x line time). Background = column
+  median (every 4th column / line, ~2.5 ms per working call). Median of the last 300 per camera. Switch
+  `particle_speed_metric` ON (user's request); `speed_length_to_width` 1.0 (round), `speed_mm_per_px` 0.083,
+  `speed_min_contrast` 30. `tools/test_particle_speed_sim.py` ALL TESTS PASSED (round 6 mm @3.5 m/s -> 3.50).
+  **Needs the real machine:** compare once with 10 mm balls / tools/ball_speed.py; long particles need the ratio.
+
+---
+
 ## 18 Nov 2026 (evening 2) - pipeline metrics on the main screen (user's request)
 
 - Four rows below the FRAME RATE rows (switch `pipeline_metrics_enabled`, ON by the user's request, display only):

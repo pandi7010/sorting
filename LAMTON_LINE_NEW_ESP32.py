@@ -1246,6 +1246,45 @@ def _ejm_add(obj, key, n=1):
     m[key] += n
 
 
+def _speed_sample(w, frame):
+    """18 Nov 2026 (switch particle_speed_metric): speed estimate from one camera frame, every 8th frame, AFTER
+    the frame was sorted (it never delays a valve). A particle falling at v passes the scan line in L / v seconds,
+    so it is  L / (v x line time)  lines tall:   v = L / (lines x line time).
+    L (length along the fall) cannot be seen by a line camera, so L = width x speed_length_to_width
+    (1.0 = round particles / balls; e.g. 2.5 for rice falling lengthwise). Only particles that start and end
+    inside the frame are used; the median of the last 300 is shown."""
+    try:
+        n = getattr(w, 'm_spd_n', 0) + 1
+        w.m_spd_n = n
+        if n % 8:
+            return
+        per = getattr(w, 'period_ms', None)
+        if frame is None or not per or getattr(frame, 'ndim', 0) != 3 or frame.shape[0] < 8:
+            return
+        import cv2
+        rows = frame.shape[0]
+        sub = frame[:, ::4, :]                                   # every 4th column (0.33 mm) is enough
+        bg = np.median(sub[::4], axis=0)                         # column background from every 4th line (cheap)
+        dev = np.abs(sub.astype(np.int16) - bg.astype(np.int16)).max(axis=2)
+        mask = (dev > int(features.value("speed_min_contrast", 30))).astype(np.uint8)
+        k, _lab, st, _c = cv2.connectedComponentsWithStats(mask, 8)
+        line_s = float(per) / 1000.0 / rows
+        mm_col = float(features.value("speed_mm_per_px", 0.083)) * 4.0
+        ratio = float(features.value("speed_length_to_width", 1.0))
+        dq = getattr(w, 'm_speeds', None)
+        if dq is None:
+            dq = w.m_speeds = collections.deque(maxlen=300)
+        for i in range(1, k):
+            x, y, ww, hh, area = (int(v) for v in st[i][:5])
+            if area < 12 or ww < 3 or hh < 2 or y == 0 or y + hh >= rows:
+                continue                                         # noise, or cut by the frame edge
+            v = (ww * mm_col * ratio / 1000.0) / (hh * line_s)
+            if 0.3 <= v <= 15.0:
+                dq.append(v)
+    except Exception:
+        pass
+
+
 def _frame_metrics(w, ts, t_arrive):
     """18 Nov 2026 (switch pipeline_metrics_enabled), called in the camera thread for every frame BEFORE the
     worker updates _prev_cam_ts / period_ms:
@@ -9576,6 +9615,8 @@ class GigECameraWorker(QThread):
                     if _pts is not None and 0 < _ts - _pts < 20000:
                         _per = (_ts - _pts) * 0.1                 # camera timestamp unit = 0.1 ms
                         self.period_ms = _per if getattr(self, 'period_ms', None) is None else 0.9 * self.period_ms + 0.1 * _per
+                    if features.enabled("particle_speed_metric"):
+                        _speed_sample(self, frame)           # 18 Nov 2026: after sorting -> never delays a valve
 
                 except mvsdk.CameraException as e:
                     if e.error_code == 164: # CAMERA_STATUS_TIME_OUT
@@ -14610,6 +14651,15 @@ class MainDashboard(QMainWindow):
             add_status_row("BACKLOG:", self.lbl_status_backlog)
             add_status_row("EJECT (SENT/DET):", self.lbl_status_eject)
             add_status_row("NOT SENT:", self.lbl_status_notsent)
+            if features.enabled("particle_speed_metric"):
+                self.lbl_status_speed = QLabel("--")
+                self.lbl_status_speed.setStyleSheet("color: #888; font-weight: bold; font-size: 11px;")
+                self.lbl_status_speed.setToolTip(
+                    "Particle speed ESTIMATE (median of the last 300 particles, FRONT / REAR).\n"
+                    "A line camera cannot see a particle's length, so length = width x speed_length_to_width "
+                    "(features_config.json, 1.0 = round particles).\nExact value: drop 10 mm balls, or run "
+                    "tools\\ball_speed.py.")
+                add_status_row("PARTICLE SPEED:", self.lbl_status_speed)
             self._metrics_timer = QTimer(self)
             self._metrics_timer.timeout.connect(self._update_metric_labels)
             self._metrics_timer.start(1000)
@@ -15044,15 +15094,26 @@ class MainDashboard(QMainWindow):
             out.append((f"{n_not}  (" + ", ".join(f"{k} {v}" for k, v in reasons) + ")", red if usb else orange))
         else:
             out.append(("0", green))
+        # 5. particle speed (estimate)
+        parts, ns = [], []
+        for tag, w in (("F", getattr(self, 'camera_worker_front', None)), ("R", getattr(self, 'camera_worker_rear', None))):
+            sp = list(getattr(w, 'm_speeds', None) or []) if w is not None else []
+            if len(sp) >= 10:
+                parts.append(f"{tag} {float(np.median(sp)):.2f}")
+            else:
+                parts.append(f"{tag} --")
+            ns.append(str(len(sp)))
+        ok = any("--" not in p for p in parts)
+        out.append(("  ".join(parts) + " m/s  (n " + "/".join(ns) + ")", "#00e676" if ok else grey))
         return out
 
     def _update_metric_labels(self):
         labels = [getattr(self, n, None) for n in ("lbl_status_lost", "lbl_status_backlog", "lbl_status_eject",
-                                                    "lbl_status_notsent")]
+                                                    "lbl_status_notsent", "lbl_status_speed")]
         try:
             texts = self._metric_texts()
         except Exception as exc:
-            texts = [(f"error: {exc}"[:40], "#888")] * 4
+            texts = [(f"error: {exc}"[:40], "#888")] * 5
         for lbl, (txt, col) in zip(labels, texts):
             if lbl is not None:
                 lbl.setText(txt)
