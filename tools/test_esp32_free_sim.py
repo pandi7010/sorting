@@ -213,7 +213,7 @@ print("3. DELAY = wait, DWELL = exact blow time (0 = no blow)")
 
 
 def run_object(delay, dwell, frames_with_object=1):
-    feats(follow_delay_dwell_enabled=True)
+    feats(follow_delay_dwell_enabled=True, follow_hold_long_objects=False)   # 19 Nov: the pure DWELL rule
     d = mk(delay, dwell); lk = d.esp32.ejector_link
     for _ in range(3):                      # empty frames first, as after START (the valve thread starts here)
         frame(d, "FRONT", []); time.sleep(0.0125)

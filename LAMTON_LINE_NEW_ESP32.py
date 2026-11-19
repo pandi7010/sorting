@@ -12491,7 +12491,9 @@ class MainDashboard(QMainWindow):
         import channel_map
         _bounds = channel_map.make_bounds_fn(source, start_pixel, pixels_per_channel, num_channels, frame_width)
         _track_rows = (features.enabled("row_tracking_enabled") or features.enabled("line_sync_enabled")
-                       or features.enabled("capture_timed_eject_enabled"))
+                       or features.enabled("capture_timed_eject_enabled")
+                       or (features.enabled("follow_delay_dwell_enabled")
+                           and features.enabled("follow_hold_long_objects")))
         _row_mask = None     # 2D bool: pixels that triggered any algorithm (only when _track_rows)
         # 2 Nov 2026 (switch detection_fixes_enabled, OFF = old behaviour): minimum defect AREA per channel,
         # GRAY uses the chosen colour plane, GRAY background = median, SIZE threshold fallback
@@ -13236,6 +13238,36 @@ class MainDashboard(QMainWindow):
         if busy is None:
             busy = self._follow_busy_until = {}
         blasts = []
+        if features.enabled("follow_hold_long_objects"):
+            # 19 Nov 2026 (user's requirement). A defect that reaches the LAST line of the frame goes on into the
+            # next frame (wire, long object): the valve is held ON until the next frame can confirm it
+            # (one frame time + margin after DELAY), so a wire gets ONE continuous blast. A defect that ends
+            # inside the frame is a finished particle: exactly DELAY, then DWELL. Blasts of the same channel
+            # join (the valve thread extends the running blast instead of skipping or repeating it).
+            # Example (frames 12.8 ms, margin 8): DELAY 5, DWELL 10. Particle: ON 5 ms, OFF 15 ms.
+            # Wire held for 1 s: ON 5 ms, stays ON, OFF 10 ms after the last frame that still showed it.
+            meta = (getattr(self, '_frame_meta', {}) or {}).get(source) or {}
+            ext = meta.get("row_extents") or {}
+            rows_used = int(meta.get("rows_used") or 0)
+            per_s = max(2.0, min(100.0, float((getattr(self, '_frame_interval_ms', {}) or {}).get(source, 12.5)))) / 1000.0
+            try:
+                hold_s = max(0.0, float(features.value("follow_hold_margin_ms", 8.0))) / 1000.0
+            except Exception:
+                hold_s = 0.008
+            for ch in frame_channels:
+                ch = int(ch)
+                t_on = now + delay_s
+                t_off = t_on + dwell_s
+                rr = ext.get(ch) or ext.get(str(ch))
+                if rr and rows_used and int(rr[1]) >= rows_used - 1:
+                    t_off = max(t_off, t_on + per_s + hold_s)      # goes on into the next frame: hold
+                busy[ch] = max(busy.get(ch, 0.0), t_off)
+                blasts.append((ch, t_on, t_off))
+                if ch in _new:
+                    _ejm_add(self, "sent", 1)
+            if blasts:
+                sched.add(blasts)
+            return
         for ch in frame_channels:
             ch = int(ch)
             if now < busy.get(ch, 0.0):

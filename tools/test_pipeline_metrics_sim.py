@@ -89,7 +89,7 @@ check("frames 6 ms late -> backlog ~6 ms", 4.5 < w.m_lag_ms < 6.5 and w.m_lag_ma
 
 
 print("2. detected -> sent / not sent (follow mode)")
-F._cache = dict(F.DEFAULTS, follow_delay_dwell_enabled=True)
+F._cache = dict(F.DEFAULTS, follow_delay_dwell_enabled=True, follow_hold_long_objects=False)   # 19 Nov: busy rule
 
 
 class FakeLink:

@@ -51,6 +51,9 @@ until you switch something on in  features_config.json  (restart the program aft
       "particle_speed_metric": true        PARTICLE SPEED row: estimate from particle width (mm) / height (lines).
                                            Set speed_length_to_width for long particles (1.0 = round). ON by the
                                            user's request (18 Nov 2026); display only, every 8th frame, after sorting
+      "follow_hold_long_objects": true     follow mode: a defect reaching the last line of the frame (wire, long
+                                           object) keeps the valve ON continuously; a particle ending inside the
+                                           frame gets exactly DELAY + DWELL. ON by the user's requirement (19 Nov)
       "ejector_test_panel_button": true    show the EJECTOR TEST PANEL button (ON by default -
                                            the user's decision; it only opens a test dialog)
     }
@@ -87,6 +90,8 @@ DEFAULTS = {
     "ejector_memory_clear_enabled": True,  # ON by the user's decision (11 Nov 2026): old valve memory is forgotten
     "frame_rate_display": True,            # ON by the user's request (18 Nov 2026): fps + lines/s in the status block
     "pipeline_metrics_enabled": True,      # ON by the user's request (18 Nov 2026): lost frames / backlog / not sent
+    "follow_hold_long_objects": True,      # ON by the user's requirement (19 Nov 2026): wire = continuous blast
+    "follow_hold_margin_ms": 8.0,          # follow hold: extra ms after one frame time before the valve may close
     "particle_speed_metric": True,         # ON by the user's request (18 Nov 2026): PARTICLE SPEED row (estimate)
     "speed_length_to_width": 1.0,          # particle length / width along the fall (1.0 round; ~2.5 rice lengthwise)
     "speed_mm_per_px": 0.083,              # mm per camera pixel across the chute (330 mm / ~3976 px)

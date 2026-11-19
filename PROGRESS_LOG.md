@@ -2,6 +2,20 @@
 
 ---
 
+## 19 Nov 2026 - follow mode: wire = continuous blast, particle = DELAY + DWELL (user's requirement)
+
+- Switch `follow_hold_long_objects` (ON, user's requirement) inside follow mode: a defect that reaches the LAST
+  line of the frame goes on into the next frame, so the valve is held ON until the next frame can confirm it
+  (OFF not before DELAY + frame time + `follow_hold_margin_ms` 8); a defect ending inside the frame gets exactly
+  DELAY then DWELL. Blasts of the same channel join (the old 'busy' skip is gone in this mode). Row extents are
+  computed when the switch is on. DWELL 0 = no blow. `tools/test_follow_hold_sim.py` ALL TESTS PASSED: wire 250 ms
+  -> one blast ON 5.1 / OFF 25.5 ms after the last frame; particle 5.1 / 10.0 ms; border particle joined.
+  `test_esp32_free_sim` / `test_pipeline_metrics_sim` pinned to the old rule. **Needs the real machine.**
+- Machine: Smart App Control blocked the unsigned MindVision driver / DLLs ('MVImageProcess_X64.dll was lost');
+  user to switch it Off and reinstall the SDK (decision: user's).
+
+---
+
 ## 18 Nov 2026 (evening 3) - PARTICLE SPEED row (user's request)
 
 - Estimate in the camera thread, every 8th frame, AFTER sorting (never delays a valve): particles that start and
